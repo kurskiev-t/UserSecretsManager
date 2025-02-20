@@ -1,0 +1,89 @@
+﻿using System.Collections.Generic;
+using System.Collections.ObjectModel;
+using System.ComponentModel;
+using System.Runtime.CompilerServices;
+using System.Windows.Input;
+using UserSecretsManager.Commands;
+using UserSecretsManager.Models;
+
+namespace UserSettingsManager.ViewModels;
+
+public class SecretsViewModel : INotifyPropertyChanged
+{
+    private ObservableCollection<ProjectSecretModel> _projects;
+    public ObservableCollection<ProjectSecretModel> Projects
+    {
+        get => _projects;
+        set
+        {
+            if (_projects == value)
+                return;
+
+            _projects = value;
+            OnPropertyChanged(nameof(Projects));
+        }
+    }
+
+    public event PropertyChangedEventHandler PropertyChanged;
+
+    #region Protected members
+
+    protected virtual void OnPropertyChanged([CallerMemberName] string propertyName = null)
+    {
+        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
+    }
+
+    protected bool SetField<T>(ref T field, T value, [CallerMemberName] string propertyName = null)
+    {
+        if (EqualityComparer<T>.Default.Equals(field, value)) return false;
+        field = value;
+        OnPropertyChanged(propertyName);
+        return true;
+    }
+
+    #endregion
+
+    // Для теста
+    public SecretsViewModel()
+    {
+        // Заполнение коллекции проектов (заглушка для примера)
+        Projects = new ObservableCollection<ProjectSecretModel>
+        {
+            new()
+            {
+                ProjectName = "Project1",
+                Sections = new ObservableCollection<SecretSectionModel>
+                {
+                    new SecretSectionModel { SectionName = "Section1", Content = "Content for Section1", IsSelected = true },
+                    new SecretSectionModel { SectionName = "Section2", Content = "Content for Section2" },
+                }
+            },
+            new()
+            {
+                ProjectName = "Project2",
+                Sections = new ObservableCollection<SecretSectionModel>
+                {
+                    new SecretSectionModel { SectionName = "SectionA", Content = "Content for SectionA", IsSelected = true },
+                    new SecretSectionModel { SectionName = "SectionB", Content = "Content for SectionB" },
+                }
+            }
+        };
+    }
+
+    public ICommand ScanCommand { get; private set; }
+
+    public ICommand SwitchSectionVariantCommand => new RelayCommand<SecretSectionModel>((selectedSection) => SwitchSelectedSection(selectedSection));
+
+    // TODO: получать группу секций с дубликатами с разными вариантами одной и той же секции для их переключения
+    public void SwitchSelectedSection(SecretSectionModel selectedSection)
+    {
+        // Закомментировать все секции в проекте
+        //foreach (var section in project.Sections)
+        //{
+        //    section.IsSelected = false;
+        //}
+
+        // Сделать выбранную секцию активной
+        selectedSection.IsSelected = true;
+    }
+}
