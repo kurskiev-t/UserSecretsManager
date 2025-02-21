@@ -12,6 +12,7 @@ using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using System.Windows.Navigation;
 using System.Windows.Shapes;
+using UserSettingsManager.ViewModels;
 
 namespace UserSecretsManager.Views
 {
@@ -23,6 +24,15 @@ namespace UserSecretsManager.Views
         public SecretsWindowControl()
         {
             InitializeComponent();
+
+            var viewModel = (SecretsViewModel)this.DataContext;
+            viewModel.ShowMessage += OnShowMessage;
+        }
+
+        private void OnShowMessage(object sender, string message)
+        {
+            // Здесь можно либо показать MessageBox, либо вызвать отдельную View для сообщения
+            MessageBox.Show(message, "Ошибка", MessageBoxButton.OK, MessageBoxImage.Information);
         }
     }
 }

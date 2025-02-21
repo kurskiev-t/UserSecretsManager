@@ -7,6 +7,9 @@ using UserSecretsManager.Commands;
 using UserSecretsManager.Models;
 using System.Linq;
 using System;
+using Microsoft.VisualStudio.Shell.Interop;
+using Microsoft.VisualStudio.Shell;
+using System.IO;
 
 namespace UserSettingsManager.ViewModels;
 
@@ -116,10 +119,39 @@ public class SecretsViewModel : INotifyPropertyChanged
         }
     }
 
-    public ICommand ScanCommand { get; private set; }
+    public event EventHandler<string> ShowMessage;
+
+    protected virtual void OnShowMessage(string message)
+    {
+        ShowMessage?.Invoke(this, message);
+    }
+
+    public ICommand ScanUserSecretsCommand => new RelayCommand(ScanUserSecrets);
 
     public ICommand SwitchSectionVariantCommand => new RelayCommand<(SecretSectionGroupModel SecretSectionGroup, SecretSectionModel SelectedSecretSection)>((groupWithSectionTuple) => SwitchSelectedSection(groupWithSectionTuple));
 
+    public void ScanUserSecrets()
+    {
+        // Путь к папке User Secrets
+        string userSecretsPath = Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+            "Microsoft", "UserSecrets");
+
+        if (!Directory.Exists(userSecretsPath))
+        {
+            OnShowMessage("Папка User Secrets не найдена.");
+            return;
+        }
+
+        // Сканируем все папки с User Secrets
+        var userSecretsFolders = Directory.GetDirectories(userSecretsPath);
+
+        foreach (var folder in userSecretsFolders)
+        {
+
+        }
+    }
+    
     // TODO: получать группу секций с дубликатами с разными вариантами одной и той же секции для их переключения
     public void SwitchSelectedSection((SecretSectionGroupModel secretSectionGroup, SecretSectionModel selectedSecretSection) tuple)
     {
