@@ -65,7 +65,8 @@ public class SecretsViewModel : INotifyPropertyChanged
                             {
                                 SectionName = "connectionSettings",
                                 Value = "some value1",
-                                Description = "DEV"
+                                Description = "DEV",
+                                IsSelected = true
                             },
                             new SecretSectionModel
                             {
@@ -91,7 +92,8 @@ public class SecretsViewModel : INotifyPropertyChanged
                             {
                                 SectionName = "connectionSettings",
                                 Value = "some value1",
-                                Description = "DEV"
+                                Description = "DEV",
+                                IsSelected = true
                             },
                             new SecretSectionModel
                             {
