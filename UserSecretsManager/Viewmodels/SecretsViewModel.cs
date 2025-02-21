@@ -129,10 +129,13 @@ public class SecretsViewModel : INotifyPropertyChanged
                 secretSectionModel.Value = secretSectionModel.Value.Replace("\\* ", "");
                 secretSectionModel.Value = secretSectionModel.Value.Replace(" *\\", "");
 
+                secretSectionModel.IsSelected = true;
+
                 continue;
             }
             
             secretSectionModel.Value = $"\\* {secretSectionModel.Value} *\\";
+            secretSectionModel.IsSelected = false;
         }
 
         tuple.secretSectionGroup.SelectedVariant = tuple.selectedSecretSection;

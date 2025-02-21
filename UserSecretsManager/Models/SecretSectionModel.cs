@@ -19,4 +19,9 @@ public class SecretSectionModel
     /// Описание секции пользовательского секрета
     /// </summary>
     public string? Description { get; set; }
+
+    /// <summary>
+    /// Активна ли секция
+    /// </summary>
+    public bool IsSelected { get; set; }
 }
