@@ -5,6 +5,7 @@ using System.Runtime.CompilerServices;
 using System.Windows.Input;
 using UserSecretsManager.Commands;
 using UserSecretsManager.Models;
+using System.Linq;
 
 namespace UserSettingsManager.ViewModels;
 
@@ -52,30 +53,72 @@ public class SecretsViewModel : INotifyPropertyChanged
             new()
             {
                 ProjectName = "Project1",
-                Sections = new ObservableCollection<SecretSectionModel>
+                SectionGroups = new ObservableCollection<SecretSectionGroupModel>
                 {
-                    new SecretSectionModel { SectionName = "Section1", Content = "Content for Section1", IsSelected = true },
-                    new SecretSectionModel { SectionName = "Section2", Content = "Content for Section2" },
+                    new SecretSectionGroupModel
+                    {
+                        SectionName = "connectionSettings",
+                        SectionVariants = new ObservableCollection<SecretSectionModel>
+                        {
+                            new SecretSectionModel
+                            {
+                                SectionName = "connectionSettings",
+                                Value = "some value1",
+                                Description = "DEV"
+                            },
+                            new SecretSectionModel
+                            {
+                                SectionName = "connectionSettings",
+                                Value = "some value2",
+                                Description = "LOCAL"
+                            }
+                        }
+                    }
                 }
             },
             new()
             {
                 ProjectName = "Project2",
-                Sections = new ObservableCollection<SecretSectionModel>
+                SectionGroups = new ObservableCollection<SecretSectionGroupModel>
                 {
-                    new SecretSectionModel { SectionName = "SectionA", Content = "Content for SectionA", IsSelected = true },
-                    new SecretSectionModel { SectionName = "SectionB", Content = "Content for SectionB" },
+                    new SecretSectionGroupModel
+                    {
+                        SectionName = "connectionSettings",
+                        SectionVariants = new ObservableCollection<SecretSectionModel>
+                        {
+                            new SecretSectionModel
+                            {
+                                SectionName = "connectionSettings",
+                                Value = "some value1",
+                                Description = "DEV"
+                            },
+                            new SecretSectionModel
+                            {
+                                SectionName = "connectionSettings",
+                                Value = "some value2",
+                                Description = "LOCAL"
+                            }
+                        }
+                    }
                 }
             }
         };
+
+        foreach (ProjectSecretModel projectSecretModel in Projects)
+        {
+            foreach (SecretSectionGroupModel secretSectionGroupModel in projectSecretModel.SectionGroups)
+            {
+                secretSectionGroupModel.SelectedVariant = secretSectionGroupModel.SectionVariants.First();
+            }
+        }
     }
 
     public ICommand ScanCommand { get; private set; }
 
-    public ICommand SwitchSectionVariantCommand => new RelayCommand<SecretSectionModel>((selectedSection) => SwitchSelectedSection(selectedSection));
+    public ICommand SwitchSectionVariantCommand => new RelayCommand<SecretSectionGroupModel, SecretSectionModel>((sectionGroup, selectedSection) => SwitchSelectedSection(sectionGroup, selectedSection));
 
     // TODO: получать группу секций с дубликатами с разными вариантами одной и той же секции для их переключения
-    public void SwitchSelectedSection(SecretSectionModel selectedSection)
+    public void SwitchSelectedSection(SecretSectionGroupModel sectionGroup, SecretSectionModel selectedSection)
     {
         // Закомментировать все секции в проекте
         //foreach (var section in project.Sections)
@@ -84,6 +127,6 @@ public class SecretsViewModel : INotifyPropertyChanged
         //}
 
         // Сделать выбранную секцию активной
-        selectedSection.IsSelected = true;
+        // selectedSection.IsSelected = true;
     }
 }

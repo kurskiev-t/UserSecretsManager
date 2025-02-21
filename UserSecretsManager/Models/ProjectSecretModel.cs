@@ -1,4 +1,5 @@
-﻿using System.Collections.ObjectModel;
+﻿using System;
+using System.Collections.ObjectModel;
 
 namespace UserSecretsManager.Models
 {
@@ -10,13 +11,13 @@ namespace UserSecretsManager.Models
         /// <summary>
         /// Название проекта
         /// </summary>
-        public string ProjectName { get; set; }
+        public string ProjectName { get; set; } = string.Empty;
 
         // TODO: группировать по дубликатам
         /// <summary>
         /// Группы секций пользовательских секретов проекта, сгруппированные по названию секции
         /// </summary>
 
-        public ObservableCollection<SecretSectionModel> Sections { get; set; } = new ObservableCollection<SecretSectionModel>();
+        public ObservableCollection<SecretSectionGroupModel> SectionGroups { get; set; } = new ObservableCollection<SecretSectionGroupModel>();
     }
 }

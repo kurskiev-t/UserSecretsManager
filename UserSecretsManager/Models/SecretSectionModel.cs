@@ -6,17 +6,17 @@
 public class SecretSectionModel
 {
     /// <summary>
-    /// Название секции
+    /// Название секции пользовательского секрета
     /// </summary>
-    public string SectionName { get; set; }
+    public string SectionName { get; set; } = string.Empty;
 
     /// <summary>
-    /// Контент секции настройки
+    /// Значение (контент) секции пользовательского секрета
     /// </summary>
-    public string Content { get; set; }
+    public string Value { get; set; } = string.Empty;
 
     /// <summary>
-    /// Включена ли секция
+    /// Описание секции пользовательского секрета
     /// </summary>
-    public bool IsSelected { get; set; }
+    public string? Description { get; set; }
 }

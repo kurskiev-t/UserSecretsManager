@@ -1,4 +1,5 @@
 ﻿using System.Collections.ObjectModel;
+using System.Linq;
 
 namespace UserSecretsManager.Models;
 
@@ -10,15 +11,15 @@ public class SecretSectionGroupModel
     /// <summary>
     /// Название секции
     /// </summary>
-    public string SectionName { get; set; }
+    public string SectionName { get; set; } = string.Empty;
 
     /// <summary>
     /// Список вариантов для этой секции (например, DEV, LOCAL)
     /// </summary>
-    public ObservableCollection<SecretSectionModel> Variants { get; set; } = new ObservableCollection<SecretSectionModel>();
+    public ObservableCollection<SecretSectionModel> SectionVariants { get; set; } = new ObservableCollection<SecretSectionModel>();
 
     /// <summary>
     /// Выбранный вариант секции
     /// </summary>
-    public SecretSectionModel SelectedVariant { get; set; }
+    public SecretSectionModel SelectedVariant { get; set; } = null!;
 }
