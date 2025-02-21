@@ -6,6 +6,7 @@ using System.Windows.Input;
 using UserSecretsManager.Commands;
 using UserSecretsManager.Models;
 using System.Linq;
+using System;
 
 namespace UserSettingsManager.ViewModels;
 
@@ -115,10 +116,10 @@ public class SecretsViewModel : INotifyPropertyChanged
 
     public ICommand ScanCommand { get; private set; }
 
-    public ICommand SwitchSectionVariantCommand => new RelayCommand<SecretSectionGroupModel, SecretSectionModel>((sectionGroup, selectedSection) => SwitchSelectedSection(sectionGroup, selectedSection));
+    public ICommand SwitchSectionVariantCommand => new RelayCommand<(SecretSectionGroupModel SecretSectionGroup, SecretSectionModel SelectedSecretSection)>((groupWithSectionTuple) => SwitchSelectedSection(groupWithSectionTuple));
 
     // TODO: получать группу секций с дубликатами с разными вариантами одной и той же секции для их переключения
-    public void SwitchSelectedSection(SecretSectionGroupModel sectionGroup, SecretSectionModel selectedSection)
+    public void SwitchSelectedSection((SecretSectionGroupModel SecretSectionGroup, SecretSectionModel SelectedSecretSection) tuple)
     {
         // Закомментировать все секции в проекте
         //foreach (var section in project.Sections)
