@@ -119,15 +119,27 @@ public class SecretsViewModel : INotifyPropertyChanged
     public ICommand SwitchSectionVariantCommand => new RelayCommand<(SecretSectionGroupModel SecretSectionGroup, SecretSectionModel SelectedSecretSection)>((groupWithSectionTuple) => SwitchSelectedSection(groupWithSectionTuple));
 
     // TODO: получать группу секций с дубликатами с разными вариантами одной и той же секции для их переключения
-    public void SwitchSelectedSection((SecretSectionGroupModel SecretSectionGroup, SecretSectionModel SelectedSecretSection) tuple)
+    public void SwitchSelectedSection((SecretSectionGroupModel secretSectionGroup, SecretSectionModel selectedSecretSection) tuple)
     {
-        // Закомментировать все секции в проекте
-        //foreach (var section in project.Sections)
-        //{
-        //    section.IsSelected = false;
-        //}
+        // Закомментировать все остальные секции в проекте
+        foreach (var secretSectionModel in tuple.secretSectionGroup.SectionVariants)
+        {
+            if (secretSectionModel == tuple.selectedSecretSection)
+            {
+                secretSectionModel.Value = secretSectionModel.Value.Replace("\\* ", "");
+                secretSectionModel.Value = secretSectionModel.Value.Replace(" *\\", "");
+
+                continue;
+            }
+            
+            secretSectionModel.Value = $"\\* {secretSectionModel.Value} *\\";
+        }
+
+        tuple.secretSectionGroup.SelectedVariant = tuple.selectedSecretSection;
 
         // Сделать выбранную секцию активной
-        // selectedSection.IsSelected = true;
+        //tuple.selectedSecretSection.IsSelected = true;
+
+        // Для выбранной секции раскомментировать, остальные закомментировать
     }
 }
