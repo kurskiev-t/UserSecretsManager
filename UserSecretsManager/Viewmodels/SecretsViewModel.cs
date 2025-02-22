@@ -317,24 +317,26 @@ public class SecretsViewModel : INotifyPropertyChanged
         }
         tuple.secretSectionGroup.SelectedVariant = tuple.selectedSecretSection;
 
-        var project = Projects.FirstOrDefault(p => p.SectionGroups.Contains(tuple.secretSectionGroup));
-        if (project != null)
+        var project = Projects.First(p => p.SectionGroups.Contains(tuple.secretSectionGroup));
+
+        var selectedSectionDescription = tuple.selectedSecretSection.Description;
+
+        foreach (var secretSectionGroup in project.SectionGroups.Where(group => group != tuple.secretSectionGroup))
         {
-            string selectedDescription = tuple.selectedSecretSection.Description;
-            foreach (var group in project.SectionGroups.Where(g => g != tuple.secretSectionGroup))
+            var matchingVariant = secretSectionGroup.SectionVariants.FirstOrDefault(v => v.Description == selectedSectionDescription);
+            
+            if (matchingVariant == null)
+                continue;
+
+            foreach (var variant in secretSectionGroup.SectionVariants)
             {
-                var matchingVariant = group.SectionVariants.FirstOrDefault(v => v.Description == selectedDescription);
-                if (matchingVariant != null)
-                {
-                    foreach (var variant in group.SectionVariants)
-                    {
-                        variant.IsSelected = variant == matchingVariant;
-                    }
-                    group.SelectedVariant = matchingVariant;
-                }
+                variant.IsSelected = variant == matchingVariant;
             }
-            UpdateSecretsJson(project);
+
+            secretSectionGroup.SelectedVariant = matchingVariant;
         }
+
+        UpdateSecretsJson(project);
     }
 
     private void UpdateSecretsJson(ProjectSecretModel project)
@@ -364,12 +366,11 @@ public class SecretsViewModel : INotifyPropertyChanged
             foreach (var group in project.SectionGroups)
             {
                 var variant = group.SectionVariants.FirstOrDefault(v => v.RawContent.Trim() == trimmedLine);
+
                 if (variant != null)
                 {
-                    string newLine = variant.IsSelected
-                        ? variant.RawContent.TrimStart().StartsWith("//") ? variant.RawContent.Substring(2).TrimStart() : variant.RawContent
-                        : variant.RawContent.TrimStart().StartsWith("//") ? variant.RawContent : $"// {variant.RawContent.TrimStart()}";
-                    updatedLines.Add(newLine);
+                    UpdateSecretSectionRawContent(variant);
+                    updatedLines.Add(variant.RawContent);
                     updated = true;
                     break;
                 }
@@ -388,6 +389,20 @@ public class SecretsViewModel : INotifyPropertyChanged
         catch (Exception ex)
         {
             OnShowMessage($"Ошибка при записи в {project.UserSecretsJsonPath}: {ex.Message}");
+        }
+    }
+
+    private static void UpdateSecretSectionRawContent(SecretSectionModel secretSectionModel)
+    {
+        string rawContent = secretSectionModel.RawContent.TrimStart();
+
+        if (secretSectionModel.IsSelected)
+        {
+            secretSectionModel.RawContent = rawContent.StartsWith("//") ? rawContent.Substring(2).TrimStart() : rawContent;
+        }
+        else
+        {
+            secretSectionModel.RawContent = rawContent.StartsWith("//") ? rawContent : $"// {rawContent}";
         }
     }
 }
