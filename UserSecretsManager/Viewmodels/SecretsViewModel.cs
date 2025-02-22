@@ -371,7 +371,10 @@ public class SecretsViewModel : INotifyPropertyChanged
                 var variant = updatedGroup.SectionVariants.FirstOrDefault(v => v.Value.Trim() == value.Trim());
                 if (variant != null)
                 {
-                    string newLine = variant.IsSelected ? variant.RawContent.Replace("//", "").TrimStart() : $"// {variant.RawContent.TrimStart()}";
+                    string rawContent = variant.RawContent.TrimStart();
+                    string newLine = variant.IsSelected
+                        ? rawContent.StartsWith("//") ? rawContent.Substring(2).TrimStart() : rawContent
+                        : rawContent.StartsWith("//") ? rawContent : $"// {rawContent}";
                     updatedLines.Add(newLine);
                     continue;
                 }
