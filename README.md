@@ -31,4 +31,4 @@ See screenshots below:
 
 [Screenshot 1](1.jpg)
 
-[Screenshot 1](2.jpg)
+[Screenshot 2](2.jpg)
