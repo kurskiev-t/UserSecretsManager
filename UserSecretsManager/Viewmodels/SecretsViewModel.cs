@@ -1,6 +1,7 @@
 ﻿using Microsoft.VisualStudio;
 using Microsoft.VisualStudio.Shell;
 using Microsoft.VisualStudio.Shell.Interop;
+using Microsoft.VisualStudio.Text.Differencing;
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
@@ -10,6 +11,7 @@ using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Text.RegularExpressions;
 using System.Windows;
+using System.Windows.Controls;
 using System.Windows.Input;
 using UserSecretsManager.Commands;
 using UserSecretsManager.Models;
@@ -33,6 +35,8 @@ public class SecretsViewModel : INotifyPropertyChanged
     }
 
     public event PropertyChangedEventHandler PropertyChanged;
+
+    private static readonly Regex SectionRegex = new Regex(@"^//\s*[""']?([^""':]+)[""']?\s*:\s*(.+?)\s*,?\s*$|^[""']?([^""':]+)[""']?\s*:\s*(.+?)\s*,?\s*$");
 
     #region Protected members
 
@@ -133,6 +137,8 @@ public class SecretsViewModel : INotifyPropertyChanged
 
     public ICommand SwitchSectionVariantCommand => new RelayCommand<(SecretSectionGroupModel SecretSectionGroup, SecretSectionModel SelectedSecretSection)>((groupWithSectionTuple) => SwitchSelectedSection(groupWithSectionTuple));
 
+    public ICommand UpdateRawContentCommand => new RelayCommand<SecretSectionModel>(UpdateRawContent);
+
     public void ScanUserSecrets()
     {
         ThreadHelper.ThrowIfNotOnUIThread();
@@ -212,7 +218,7 @@ public class SecretsViewModel : INotifyPropertyChanged
                     continue;
                 }
 
-                var match = Regex.Match(trimmedLine, @"^//\s*[""']?([^""':]+)[""']?\s*:\s*(.+?)\s*,?\s*$|^[""']?([^""':]+)[""']?\s*:\s*(.+?)\s*,?\s*$");
+                var match = SectionRegex.Match(trimmedLine);
                 if (!match.Success)
                     continue;
 
@@ -339,6 +345,19 @@ public class SecretsViewModel : INotifyPropertyChanged
         UpdateSecretsJson(project);
     }
 
+    private void UpdateRawContent(SecretSectionModel sectionModel)
+    {
+        if (sectionModel == null)
+            return;
+
+        var project = Projects.FirstOrDefault(p => p.SectionGroups.Any(g => g.SectionVariants.Contains(sectionModel)));
+        
+        if (project != null)
+        {
+            UpdateSecretsJson(project, sectionModel);
+        }
+    }
+
     private void UpdateSecretsJson(ProjectSecretModel project)
     {
         ThreadHelper.ThrowIfNotOnUIThread();
@@ -385,6 +404,56 @@ public class SecretsViewModel : INotifyPropertyChanged
         try
         {
             File.WriteAllLines(project.UserSecretsJsonPath, updatedLines);
+        }
+        catch (Exception ex)
+        {
+            OnShowMessage($"Ошибка при записи в {project.UserSecretsJsonPath}: {ex.Message}");
+        }
+    }
+
+    private void UpdateSecretsJson(ProjectSecretModel project, SecretSectionModel secretSection)
+    {
+        ThreadHelper.ThrowIfNotOnUIThread();
+
+        if (string.IsNullOrEmpty(project.UserSecretsJsonPath) || !File.Exists(project.UserSecretsJsonPath))
+        {
+            OnShowMessage($"Файл секретов для {project.ProjectName} не найден.");
+            return;
+        }
+
+        var lines = File.ReadAllLines(project.UserSecretsJsonPath).ToList();
+        string newSectionKey = null;
+
+        for (var i = 0; i < lines.Count; i++)
+        {
+            var currentLine = lines[i];
+
+            string trimmedLine = currentLine.Trim();
+
+            if (secretSection.PreviousRawContent.Trim() != trimmedLine)
+                continue;
+
+            var match = SectionRegex.Match(secretSection.RawContent.Trim());
+
+            if (match.Success)
+            {
+                bool isSectionCommented = trimmedLine.StartsWith("//");
+                newSectionKey = isSectionCommented ? match.Groups[1].Value : match.Groups[3].Value;
+            }
+            
+            lines[i] = secretSection.RawContent;
+            break;
+        }
+
+        try
+        {
+            File.WriteAllLines(project.UserSecretsJsonPath, lines);
+
+            if (secretSection.SectionName != newSectionKey)
+            {
+                // Пересканировать секреты пользователей, т. к. ключ секции поменялся
+                ScanUserSecrets();
+            }
         }
         catch (Exception ex)
         {

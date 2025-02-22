@@ -2,6 +2,7 @@
 using System.Runtime.InteropServices;
 using System.Threading;
 using Microsoft.VisualStudio.Shell;
+using UserSecretsManager.ToolWindows;
 using Task = System.Threading.Tasks.Task;
 
 namespace UserSecretsManager
@@ -26,7 +27,7 @@ namespace UserSecretsManager
     [PackageRegistration(UseManagedResourcesOnly = true, AllowsBackgroundLoading = true)]
     [Guid(UserSecretsManagerPackage.PackageGuidString)]
     [ProvideMenuResource("Menus.ctmenu", 1)]
-    [ProvideToolWindow(typeof(UserSecretsManager.ToolWindows.SecretsWindow))]
+    [ProvideToolWindow(typeof(UserSecretsManager.ToolWindows.SecretsWindow), Width = 400, Height = 300, Style = VsDockStyle.Tabbed, Orientation = ToolWindowOrientation.Right, Transient = false)]
     public sealed class UserSecretsManagerPackage : AsyncPackage
     {
          /// <summary>

@@ -14,6 +14,7 @@ public class SecretSectionModel : INotifyPropertyChanged
     private string? _description;
     private bool _isSelected;
     private string _rawContent = string.Empty;
+    private string _previousRawContent = string.Empty;
 
     /// <summary>
     /// Название секции пользовательского секрета
@@ -57,7 +58,20 @@ public class SecretSectionModel : INotifyPropertyChanged
     public string RawContent
     {
         get => _rawContent;
-        set => SetField(ref _rawContent, value);
+        set
+        {
+            _previousRawContent = _rawContent;
+            SetField(ref _rawContent, value);
+        }
+    }
+
+    /// <summary>
+    /// Предыдущее значение в контенте секции пользовательского секрета в исходном виде (закомментированный или активный)
+    /// </summary>
+    public string PreviousRawContent
+    {
+        get => _previousRawContent;
+        set => SetField(ref _previousRawContent, value);
     }
 
     public event PropertyChangedEventHandler PropertyChanged;
