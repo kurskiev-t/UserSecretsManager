@@ -328,6 +328,8 @@ public class SecretsViewModel : INotifyPropertyChanged
 
     private void UpdateSecretsJson(ProjectSecretModel project, SecretSectionGroupModel updatedGroup)
     {
+        ThreadHelper.ThrowIfNotOnUIThread();
+
         if (string.IsNullOrEmpty(project.UserSecretsJsonPath) || !File.Exists(project.UserSecretsJsonPath))
         {
             OnShowMessage($"Файл секретов для {project.ProjectName} не найден.");
@@ -369,8 +371,7 @@ public class SecretsViewModel : INotifyPropertyChanged
                 var variant = updatedGroup.SectionVariants.FirstOrDefault(v => v.Value.Trim() == value.Trim());
                 if (variant != null)
                 {
-                    string formattedValue = $"\"{key}\": {value}";
-                    string newLine = variant.IsSelected ? formattedValue : $"// {formattedValue}";
+                    string newLine = variant.IsSelected ? variant.RawContent.Replace("//", "").TrimStart() : $"// {variant.RawContent.TrimStart()}";
                     updatedLines.Add(newLine);
                     continue;
                 }
