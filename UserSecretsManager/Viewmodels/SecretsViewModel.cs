@@ -139,6 +139,26 @@ public class SecretsViewModel : INotifyPropertyChanged
 
     public ICommand UpdateRawContentCommand => new RelayCommand<SecretSectionModel>(UpdateRawContent);
 
+    public ICommand ToggleProjectVisibilityCommand => new RelayCommand<ProjectSecretModel>(ToggleProjectVisibility);
+
+    public ICommand SaveChangesCommand => new RelayCommand(SaveChanges);
+
+    private void SaveChanges()
+    {
+        foreach (var project in Projects.Where(p => p.IsVisible))
+        {
+            UpdateSecretsJson(project);
+        }
+    }
+
+    private static void ToggleProjectVisibility(ProjectSecretModel project)
+    {
+        if (project != null)
+        {
+            project.IsVisible = !project.IsVisible;
+        }
+    }
+
     public void ScanUserSecrets()
     {
         ThreadHelper.ThrowIfNotOnUIThread();
