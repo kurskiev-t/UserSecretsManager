@@ -14,7 +14,7 @@ using System.Windows.Input;
 using UserSecretsManager.Commands;
 using UserSecretsManager.Models;
 
-namespace UserSecretsManager.Viewmodels;
+namespace UserSecretsManager.ViewModels;
 
 public class SecretsViewModel : INotifyPropertyChanged
 {
