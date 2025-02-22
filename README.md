@@ -29,3 +29,6 @@ Extension will make based on it two groups:
 
 See screenshots below:
 
+[Screenshot 1](1.png)
+
+[Screenshot 1](2.png)
