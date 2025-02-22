@@ -1,182 +1,204 @@
-﻿using System.Collections.Generic;
+﻿using Microsoft.VisualStudio;
+using Microsoft.VisualStudio.Shell;
+using Microsoft.VisualStudio.Shell.Interop;
+using System;
+using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
+using System.IO;
+using System.Linq;
 using System.Runtime.CompilerServices;
+using System.Windows;
 using System.Windows.Input;
 using UserSecretsManager.Commands;
 using UserSecretsManager.Models;
-using System.Linq;
-using System;
-using Microsoft.VisualStudio.Shell.Interop;
-using Microsoft.VisualStudio.Shell;
-using System.IO;
 
-namespace UserSettingsManager.ViewModels;
-
-public class SecretsViewModel : INotifyPropertyChanged
+namespace UserSecretsManager.ViewModels
 {
-    private ObservableCollection<ProjectSecretModel> _projects;
-    public ObservableCollection<ProjectSecretModel> Projects
+    public class SecretsViewModel : INotifyPropertyChanged
     {
-        get => _projects;
-        set
+        private readonly IVsSolution _vsSolution;
+        private ObservableCollection<ProjectSecretModel> _projects;
+
+        public ObservableCollection<ProjectSecretModel> Projects
         {
-            if (_projects == value)
+            get => _projects;
+            set => SetField(ref _projects, value);
+        }
+
+        public event PropertyChangedEventHandler PropertyChanged;
+        public event EventHandler<string> ShowMessage;
+
+        public SecretsViewModel(IVsSolution vsSolution)
+        {
+            _vsSolution = vsSolution ?? throw new ArgumentNullException(nameof(vsSolution));
+            Projects = new ObservableCollection<ProjectSecretModel>();
+            ScanUserSecretsCommand = new RelayCommand(() => Application.Current.Dispatcher.Invoke(ScanUserSecrets));
+            SwitchSectionVariantCommand = new RelayCommand<(SecretSectionGroupModel, SecretSectionModel)>(SwitchSelectedSection);
+
+            // Заполнение коллекции проектов (заглушка для примера)
+            Projects = new ObservableCollection<ProjectSecretModel>
+            {
+                new()
+                {
+                    ProjectName = "Project1",
+                    SectionGroups = new ObservableCollection<SecretSectionGroupModel>
+                    {
+                        new SecretSectionGroupModel
+                        {
+                            SectionName = "connectionSettings",
+                            SectionVariants = new ObservableCollection<SecretSectionModel>
+                            {
+                                new SecretSectionModel
+                                {
+                                    SectionName = "connectionSettings",
+                                    Value = "some value1",
+                                    Description = "DEV",
+                                    IsSelected = true
+                                },
+                                new SecretSectionModel
+                                {
+                                    SectionName = "connectionSettings",
+                                    Value = "some value2",
+                                    Description = "LOCAL"
+                                }
+                            }
+                        }
+                    }
+                },
+                new()
+                {
+                    ProjectName = "Project2",
+                    SectionGroups = new ObservableCollection<SecretSectionGroupModel>
+                    {
+                        new SecretSectionGroupModel
+                        {
+                            SectionName = "connectionSettings",
+                            SectionVariants = new ObservableCollection<SecretSectionModel>
+                            {
+                                new SecretSectionModel
+                                {
+                                    SectionName = "connectionSettings",
+                                    Value = "some value1",
+                                    Description = "DEV",
+                                    IsSelected = true
+                                },
+                                new SecretSectionModel
+                                {
+                                    SectionName = "connectionSettings",
+                                    Value = "some value2",
+                                    Description = "LOCAL"
+                                }
+                            }
+                        }
+                    }
+                }
+            };
+
+            foreach (ProjectSecretModel projectSecretModel in Projects)
+            {
+                foreach (SecretSectionGroupModel secretSectionGroupModel in projectSecretModel.SectionGroups)
+                {
+                    secretSectionGroupModel.SelectedVariant = secretSectionGroupModel.SectionVariants.First();
+                }
+            }
+        }
+
+        protected virtual void OnPropertyChanged([CallerMemberName] string propertyName = null)
+        {
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
+        }
+
+        protected bool SetField<T>(ref T field, T value, [CallerMemberName] string propertyName = null)
+        {
+            if (EqualityComparer<T>.Default.Equals(field, value)) return false;
+            field = value;
+            OnPropertyChanged(propertyName);
+            return true;
+        }
+
+        protected virtual void OnShowMessage(string message)
+        {
+            ShowMessage?.Invoke(this, message);
+        }
+
+        public ICommand ScanUserSecretsCommand { get; }
+
+        public ICommand SwitchSectionVariantCommand { get; }
+
+        public void ScanUserSecrets()
+        {
+            ThreadHelper.ThrowIfNotOnUIThread();
+
+            string userSecretsPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "Microsoft", "UserSecrets");
+            if (!Directory.Exists(userSecretsPath))
+            {
+                OnShowMessage("Папка User Secrets не найдена.");
                 return;
+            }
 
-            _projects = value;
-            OnPropertyChanged(nameof(Projects));
-        }
-    }
+            var userSecretsFolders = Directory.GetDirectories(userSecretsPath);
+            Projects.Clear();
 
-    public event PropertyChangedEventHandler PropertyChanged;
-
-    #region Protected members
-
-    protected virtual void OnPropertyChanged([CallerMemberName] string propertyName = null)
-    {
-        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
-    }
-
-    protected bool SetField<T>(ref T field, T value, [CallerMemberName] string propertyName = null)
-    {
-        if (EqualityComparer<T>.Default.Equals(field, value)) return false;
-        field = value;
-        OnPropertyChanged(propertyName);
-        return true;
-    }
-
-    #endregion
-
-    // Для теста
-    public SecretsViewModel()
-    {
-        // Заполнение коллекции проектов (заглушка для примера)
-        Projects = new ObservableCollection<ProjectSecretModel>
-        {
-            new()
+            foreach (var folder in userSecretsFolders)
             {
-                ProjectName = "Project1",
-                SectionGroups = new ObservableCollection<SecretSectionGroupModel>
+                string secretsJsonPath = Path.Combine(folder, "secrets.json");
+                if (File.Exists(secretsJsonPath))
                 {
-                    new SecretSectionGroupModel
+                    string userSecretsId = Path.GetFileName(folder);
+                    var projectPath = FindProjectByUserSecretsId(userSecretsId);
+
+                    if (projectPath != null)
                     {
-                        SectionName = "connectionSettings",
-                        SectionVariants = new ObservableCollection<SecretSectionModel>
-                        {
-                            new SecretSectionModel
-                            {
-                                SectionName = "connectionSettings",
-                                Value = "some value1",
-                                Description = "DEV",
-                                IsSelected = true
-                            },
-                            new SecretSectionModel
-                            {
-                                SectionName = "connectionSettings",
-                                Value = "some value2",
-                                Description = "LOCAL"
-                            }
-                        }
-                    }
-                }
-            },
-            new()
-            {
-                ProjectName = "Project2",
-                SectionGroups = new ObservableCollection<SecretSectionGroupModel>
-                {
-                    new SecretSectionGroupModel
-                    {
-                        SectionName = "connectionSettings",
-                        SectionVariants = new ObservableCollection<SecretSectionModel>
-                        {
-                            new SecretSectionModel
-                            {
-                                SectionName = "connectionSettings",
-                                Value = "some value1",
-                                Description = "DEV",
-                                IsSelected = true
-                            },
-                            new SecretSectionModel
-                            {
-                                SectionName = "connectionSettings",
-                                Value = "some value2",
-                                Description = "LOCAL"
-                            }
-                        }
+                        var project = new ProjectSecretModel { ProjectName = Path.GetFileNameWithoutExtension(projectPath) };
+                        // Здесь можно добавить парсинг secrets.json и заполнение SectionGroups
+                        Projects.Add(project);
                     }
                 }
             }
-        };
+        }
 
-        foreach (ProjectSecretModel projectSecretModel in Projects)
+        private string? FindProjectByUserSecretsId(string userSecretsId)
         {
-            foreach (SecretSectionGroupModel secretSectionGroupModel in projectSecretModel.SectionGroups)
+            ThreadHelper.ThrowIfNotOnUIThread();
+
+            _vsSolution.GetProjectEnum((uint)__VSENUMPROJFLAGS.EPF_LOADEDINSOLUTION, Guid.Empty, out var enumerator);
+            var projects = new IVsHierarchy[1];
+
+            while (enumerator.Next(1, projects, out var fetched) == 0 && fetched == 1)
             {
-                secretSectionGroupModel.SelectedVariant = secretSectionGroupModel.SectionVariants.First();
+                projects[0].GetProperty((uint)VSConstants.VSITEMID.Root, (int)__VSHPROPID.VSHPROPID_ProjectDir, out var projectDir);
+                var csprojFiles = Directory.GetFiles(projectDir.ToString(), "*.csproj", SearchOption.AllDirectories);
+
+                foreach (var csprojFile in csprojFiles)
+                {
+                    string csprojContent = File.ReadAllText(csprojFile);
+                    if (csprojContent.Contains($"<UserSecretsId>{userSecretsId}</UserSecretsId>"))
+                    {
+                        return csprojFile;
+                    }
+                }
             }
-        }
-    }
 
-    public event EventHandler<string> ShowMessage;
-
-    protected virtual void OnShowMessage(string message)
-    {
-        ShowMessage?.Invoke(this, message);
-    }
-
-    public ICommand ScanUserSecretsCommand => new RelayCommand(ScanUserSecrets);
-
-    public ICommand SwitchSectionVariantCommand => new RelayCommand<(SecretSectionGroupModel SecretSectionGroup, SecretSectionModel SelectedSecretSection)>((groupWithSectionTuple) => SwitchSelectedSection(groupWithSectionTuple));
-
-    public void ScanUserSecrets()
-    {
-        // Путь к папке User Secrets
-        string userSecretsPath = Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
-            "Microsoft", "UserSecrets");
-
-        if (!Directory.Exists(userSecretsPath))
-        {
-            OnShowMessage("Папка User Secrets не найдена.");
-            return;
+            return null;
         }
 
-        // Сканируем все папки с User Secrets
-        var userSecretsFolders = Directory.GetDirectories(userSecretsPath);
-
-        foreach (var folder in userSecretsFolders)
+        public void SwitchSelectedSection((SecretSectionGroupModel secretSectionGroup, SecretSectionModel selectedSecretSection) tuple)
         {
-
-        }
-    }
-    
-    // TODO: получать группу секций с дубликатами с разными вариантами одной и той же секции для их переключения
-    public void SwitchSelectedSection((SecretSectionGroupModel secretSectionGroup, SecretSectionModel selectedSecretSection) tuple)
-    {
-        // Закомментировать все остальные секции в проекте
-        foreach (var secretSectionModel in tuple.secretSectionGroup.SectionVariants)
-        {
-            if (secretSectionModel == tuple.selectedSecretSection)
+            foreach (var secretSectionModel in tuple.secretSectionGroup.SectionVariants)
             {
-                secretSectionModel.Value = secretSectionModel.Value.Replace("\\* ", "");
-                secretSectionModel.Value = secretSectionModel.Value.Replace(" *\\", "");
-
-                secretSectionModel.IsSelected = true;
-
-                continue;
+                if (secretSectionModel == tuple.selectedSecretSection)
+                {
+                    secretSectionModel.Value = secretSectionModel.Value.Replace("\\* ", "").Replace(" *\\", "");
+                    secretSectionModel.IsSelected = true;
+                }
+                else
+                {
+                    secretSectionModel.Value = $"\\* {secretSectionModel.Value} *\\";
+                    secretSectionModel.IsSelected = false;
+                }
             }
-            
-            secretSectionModel.Value = $"\\* {secretSectionModel.Value} *\\";
-            secretSectionModel.IsSelected = false;
+            tuple.secretSectionGroup.SelectedVariant = tuple.selectedSecretSection;
         }
-
-        tuple.secretSectionGroup.SelectedVariant = tuple.selectedSecretSection;
-
-        // Сделать выбранную секцию активной
-        //tuple.selectedSecretSection.IsSelected = true;
-
-        // Для выбранной секции раскомментировать, остальные закомментировать
     }
 }

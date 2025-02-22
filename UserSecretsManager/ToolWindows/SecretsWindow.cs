@@ -1,6 +1,6 @@
-﻿using System;
+﻿using Microsoft.VisualStudio.Shell;
+using System;
 using System.Runtime.InteropServices;
-using Microsoft.VisualStudio.Shell;
 using UserSecretsManager.Views;
 
 namespace UserSecretsManager.ToolWindows
@@ -16,7 +16,7 @@ namespace UserSecretsManager.ToolWindows
     /// implementation of the IVsUIElementPane interface.
     /// </para>
     /// </remarks>
-    [Guid("0bb8aeb1-2bb5-460d-9543-c52f6b3278f4")]
+    [Guid("4dc22e88-b8d4-4f68-b421-408ea98a3eaa")]
     public class SecretsWindow : ToolWindowPane
     {
         /// <summary>
@@ -24,7 +24,7 @@ namespace UserSecretsManager.ToolWindows
         /// </summary>
         public SecretsWindow() : base(null)
         {
-            this.Caption = "User Secrets Manager";
+            this.Caption = "SecretsWindow";
 
             // This is the user control hosted by the tool window; Note that, even if this class implements IDisposable,
             // we are not calling Dispose on this object. This is because ToolWindowPane calls Dispose on

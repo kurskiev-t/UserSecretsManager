@@ -1,7 +1,11 @@
-﻿using System;
+﻿using Microsoft.Extensions.DependencyInjection;
+using Microsoft.VisualStudio.Shell;
+using Microsoft.VisualStudio.Shell.Interop;
+using System;
 using System.Runtime.InteropServices;
 using System.Threading;
-using Microsoft.VisualStudio.Shell;
+using UserSecretsManager.ToolWindows;
+using UserSecretsManager.ViewModels;
 using Task = System.Threading.Tasks.Task;
 
 namespace UserSecretsManager
@@ -34,6 +38,10 @@ namespace UserSecretsManager
         /// </summary>
         public const string PackageGuidString = "3f9d20a1-ec19-4486-9538-f2ca17950b28";
 
+        private IServiceProvider? _serviceProvider = null!;
+
+        public static UserSecretsManagerPackage Instance { get; private set; } = null!;
+
         #region Package Members
 
         /// <summary>
@@ -45,10 +53,46 @@ namespace UserSecretsManager
         /// <returns>A task representing the async work of package initialization, or an already completed task if there is none. Do not return null from this method.</returns>
         protected override async Task InitializeAsync(CancellationToken cancellationToken, IProgress<ServiceProgressData> progress)
         {
-            // When initialized asynchronously, the current thread may be a background thread at this point.
-            // Do any initialization that requires the UI thread after switching to the UI thread.
-            await this.JoinableTaskFactory.SwitchToMainThreadAsync(cancellationToken);
+            await base.InitializeAsync(cancellationToken, progress);
+
+            // Сохраняем экземпляр пакета
+            Instance = this;
+
+            // Переключаемся на главный поток для получения сервисов VS
+            await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync(cancellationToken);
+
+            // Получаем IVsSolution
+            if (await GetServiceAsync(typeof(SVsSolution)) is not IVsSolution vsSolution)
+            {
+                throw new InvalidOperationException("Не удалось получить IVsSolution.");
+            }
+
+            // Настройка DI
+            ServiceCollection services = new();
+            ConfigureServices(services, vsSolution);
+            _serviceProvider = services.BuildServiceProvider();
             await UserSecretsManager.ToolWindows.SecretsWindowCommand.InitializeAsync(this);
+
+            // Инициализация команды с DI
+            //await SecretsWindowCommand.InitializeAsync(this, _serviceProvider);
+        }
+
+        private void ConfigureServices(ServiceCollection services, IVsSolution vsSolution)
+        {
+            // Регистрируем IVsSolution как Singleton
+            services.AddSingleton(vsSolution);
+
+            // Регистрируем ViewModel
+            services.AddTransient<SecretsViewModel>();
+
+            // Если позже добавишь сервис для работы с секретами, например ISecretsService
+            // services.AddSingleton<ISecretsService, SecretsService>();
+        }
+
+        protected override object GetService(Type serviceType)
+        {
+            // Перехватываем запросы сервисов через DI
+            return _serviceProvider?.GetService(serviceType) ?? base.GetService(serviceType);
         }
 
         #endregion

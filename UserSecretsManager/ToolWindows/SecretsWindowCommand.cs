@@ -22,7 +22,7 @@ namespace UserSecretsManager.ToolWindows
         /// <summary>
         /// Command menu group (command set GUID).
         /// </summary>
-        public static readonly Guid CommandSet = new Guid("f320ae31-ae66-4791-80ac-f4521b94c5c8");
+        public static readonly Guid CommandSet = new Guid("ef246b61-d12a-4e2b-9d22-a09e30a96469");
 
         /// <summary>
         /// VS Package that provides this command, not null.
