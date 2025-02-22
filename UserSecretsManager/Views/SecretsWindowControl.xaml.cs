@@ -13,7 +13,7 @@ namespace UserSecretsManager.Views
         {
             InitializeComponent();
 
-            var _ = new Microsoft.Xaml.Behaviors.DefaultTriggerAttribute(typeof(Trigger), typeof(Microsoft.Xaml.Behaviors.TriggerBase), null);
+            // var _ = new Microsoft.Xaml.Behaviors.DefaultTriggerAttribute(typeof(Trigger), typeof(Microsoft.Xaml.Behaviors.TriggerBase), null);
         }
 
         private void UserControl_Loaded(object sender, RoutedEventArgs e)
