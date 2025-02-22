@@ -195,21 +195,23 @@ public class SecretsViewModel : INotifyPropertyChanged
         try
         {
             var userSecretsJsonLines = File.ReadAllLines(secretsJsonPath);
-
-            // Словарь для хранения секций и их вариантов
             var sectionVariants = new Dictionary<string, List<(string Value, bool IsCommented, string Comment, string RawContent)>>();
+            string currentComment = null;
 
             for (var i = 0; i < userSecretsJsonLines.Length; i++)
             {
                 var line = userSecretsJsonLines[i];
-
                 string trimmedLine = line.Trim();
 
-                // Пропускаем пустые строки и не-JSON
-                if (string.IsNullOrWhiteSpace(trimmedLine) || !trimmedLine.Contains(":"))
+                if (string.IsNullOrWhiteSpace(trimmedLine))
                     continue;
 
-                // Извлекаем ключ и значение
+                if (TryParsePureComment(line, out var comment))
+                {
+                    currentComment = comment;
+                    continue;
+                }
+
                 var match = Regex.Match(trimmedLine, @"^//\s*[""']?([^""':]+)[""']?\s*:\s*(.+?)\s*,?\s*$|^[""']?([^""':]+)[""']?\s*:\s*(.+?)\s*,?\s*$");
                 if (!match.Success)
                     continue;
@@ -220,7 +222,7 @@ public class SecretsViewModel : INotifyPropertyChanged
 
                 if (isSectionCommented)
                 {
-                    sectionValue = sectionValue.TrimStart('/'); // Убираем комментарии из значения
+                    sectionValue = sectionValue.TrimStart('/');
                 }
 
                 if (!sectionVariants.ContainsKey(sectionKey))
@@ -228,12 +230,9 @@ public class SecretsViewModel : INotifyPropertyChanged
                     sectionVariants[sectionKey] = new List<(string, bool, string, string)>();
                 }
 
-                var previousLine = userSecretsJsonLines[i - 1];
-
-                sectionVariants[sectionKey].Add((sectionValue, isSectionCommented, TryParsePureComment(previousLine, out var comment) ? comment : null, line)!);
+                sectionVariants[sectionKey].Add((sectionValue, isSectionCommented, currentComment, line)!);
             }
 
-            // Заполняем модели
             project.SectionGroups = new ObservableCollection<SecretSectionGroupModel>(
                 sectionVariants.Select((kvp, index) =>
                 {
@@ -246,7 +245,7 @@ public class SecretsViewModel : INotifyPropertyChanged
                                 SectionName = kvp.Key,
                                 Value = v.Value,
                                 Description = v.Comment ?? $"{kvp.Key} variant {variantIndex + 1}",
-                                IsSelected = !v.IsCommented, // Активен тот, что не закомментирован
+                                IsSelected = !v.IsCommented,
                                 RawContent = v.RawContent
                             }))
                     };
@@ -308,7 +307,6 @@ public class SecretsViewModel : INotifyPropertyChanged
         return null;
     }
 
-    // TODO: получать группу секций с дубликатами с разными вариантами одной и той же секции для их переключения
     public void SwitchSelectedSection((SecretSectionGroupModel secretSectionGroup, SecretSectionModel selectedSecretSection) tuple)
     {
         ThreadHelper.ThrowIfNotOnUIThread();
@@ -322,11 +320,24 @@ public class SecretsViewModel : INotifyPropertyChanged
         var project = Projects.FirstOrDefault(p => p.SectionGroups.Contains(tuple.secretSectionGroup));
         if (project != null)
         {
-            UpdateSecretsJson(project, tuple.secretSectionGroup);
+            string selectedDescription = tuple.selectedSecretSection.Description;
+            foreach (var group in project.SectionGroups.Where(g => g != tuple.secretSectionGroup))
+            {
+                var matchingVariant = group.SectionVariants.FirstOrDefault(v => v.Description == selectedDescription);
+                if (matchingVariant != null)
+                {
+                    foreach (var variant in group.SectionVariants)
+                    {
+                        variant.IsSelected = variant == matchingVariant;
+                    }
+                    group.SelectedVariant = matchingVariant;
+                }
+            }
+            UpdateSecretsJson(project);
         }
     }
 
-    private void UpdateSecretsJson(ProjectSecretModel project, SecretSectionGroupModel updatedGroup)
+    private void UpdateSecretsJson(ProjectSecretModel project)
     {
         ThreadHelper.ThrowIfNotOnUIThread();
 
@@ -343,44 +354,31 @@ public class SecretsViewModel : INotifyPropertyChanged
         {
             string trimmedLine = line.Trim();
 
-            if (string.IsNullOrWhiteSpace(trimmedLine))
+            if (string.IsNullOrWhiteSpace(trimmedLine) || TryParsePureComment(line, out _))
             {
                 updatedLines.Add(line);
                 continue;
             }
 
-            if (TryParsePureComment(line, out _))
+            bool updated = false;
+            foreach (var group in project.SectionGroups)
             {
-                updatedLines.Add(line);
-                continue;
-            }
-
-            var match = Regex.Match(trimmedLine, @"^//\s*[""']?([^""':]+)[""']?\s*:\s*(.+?)\s*,?\s*$|^[""']?([^""':]+)[""']?\s*:\s*(.+?)\s*,?\s*$");
-            if (!match.Success)
-            {
-                updatedLines.Add(line);
-                continue;
-            }
-
-            bool isCommented = trimmedLine.StartsWith("//");
-            string key = isCommented ? match.Groups[1].Value : match.Groups[3].Value;
-            string value = isCommented ? match.Groups[2].Value : match.Groups[4].Value;
-
-            if (key == updatedGroup.SectionName)
-            {
-                var variant = updatedGroup.SectionVariants.FirstOrDefault(v => v.Value.Trim() == value.Trim());
+                var variant = group.SectionVariants.FirstOrDefault(v => v.RawContent.Trim() == trimmedLine);
                 if (variant != null)
                 {
-                    string rawContent = variant.RawContent.TrimStart();
                     string newLine = variant.IsSelected
-                        ? rawContent.StartsWith("//") ? rawContent.Substring(2).TrimStart() : rawContent
-                        : rawContent.StartsWith("//") ? rawContent : $"// {rawContent}";
+                        ? variant.RawContent.TrimStart().StartsWith("//") ? variant.RawContent.Substring(2).TrimStart() : variant.RawContent
+                        : variant.RawContent.TrimStart().StartsWith("//") ? variant.RawContent : $"// {variant.RawContent.TrimStart()}";
                     updatedLines.Add(newLine);
-                    continue;
+                    updated = true;
+                    break;
                 }
             }
 
-            updatedLines.Add(line);
+            if (!updated)
+            {
+                updatedLines.Add(line);
+            }
         }
 
         try
