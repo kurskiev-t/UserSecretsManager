@@ -7,18 +7,17 @@ namespace UserSecretsManager.Converters
 {
     public class GroupAndSectionConverter : IMultiValueConverter
     {
-        public object Convert(object[] values, Type targetType, object parameter, CultureInfo culture)
+        public object? Convert(object[] values, Type targetType, object parameter, CultureInfo culture)
         {
-            if (values.Length == 2)
+            if (values.Length != 2)
             {
-                var group = values[0] as SecretSectionGroupModel;
-                var selectedSection = values[1] as SecretSectionModel;
+                return null;
+            }
 
-                if (group != null && selectedSection != null)
-                {
-                    // Возвращаем Tuple или любую другую структуру
-                    return (SecretSectionGroup: group, SelectedSecretSection: selectedSection);
-                }
+            if (values[0] is SecretSectionGroupModel group && values[1] is SecretSectionModel selectedSection)
+            {
+                // Возвращаем Tuple или любую другую структуру
+                return (SecretSectionGroup: group, SelectedSecretSection: selectedSection);
             }
 
             return null;

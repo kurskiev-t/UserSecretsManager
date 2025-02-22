@@ -24,9 +24,12 @@ namespace UserSecretsManager.Views
         public SecretsWindowControl()
         {
             InitializeComponent();
+        }
 
-            var viewModel = (SecretsViewModel)this.DataContext;
-            viewModel.ShowMessage += OnShowMessage;
+        private void UserControl_Loaded(object sender, RoutedEventArgs e)
+        {
+            if (DataContext is SecretsViewModel viewModel)
+                viewModel.ShowMessage += OnShowMessage;
         }
 
         private void OnShowMessage(object sender, string message)
