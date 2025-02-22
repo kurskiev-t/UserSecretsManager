@@ -24,4 +24,9 @@ public class SecretSectionModel
     /// Активна ли секция
     /// </summary>
     public bool IsSelected { get; set; }
+
+    /// <summary>
+    /// Контент секции пользовательского секрета в исходном виде (закомментированный или активный)
+    /// </summary>
+    public string RawContent { get; set; } = string.Empty;
 }

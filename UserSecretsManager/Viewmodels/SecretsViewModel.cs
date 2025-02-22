@@ -1,20 +1,20 @@
-﻿using System.Collections.Generic;
+﻿using Microsoft.VisualStudio;
+using Microsoft.VisualStudio.Shell;
+using Microsoft.VisualStudio.Shell.Interop;
+using System;
+using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
+using System.IO;
+using System.Linq;
 using System.Runtime.CompilerServices;
+using System.Text.RegularExpressions;
+using System.Windows;
 using System.Windows.Input;
 using UserSecretsManager.Commands;
 using UserSecretsManager.Models;
-using System.Linq;
-using System;
-using Microsoft.VisualStudio.Shell.Interop;
-using Microsoft.VisualStudio.Shell;
-using System.IO;
-using System.Windows;
-using Microsoft.VisualStudio;
-using System.Text.RegularExpressions;
 
-namespace UserSettingsManager.ViewModels;
+namespace UserSecretsManager.Viewmodels;
 
 public class SecretsViewModel : INotifyPropertyChanged
 {
@@ -164,65 +164,73 @@ public class SecretsViewModel : INotifyPropertyChanged
         foreach (var folder in userSecretsFolders)
         {
             string secretsJsonPath = Path.Combine(folder, "secrets.json");
-            if (File.Exists(secretsJsonPath))
-            {
-                string userSecretsId = Path.GetFileName(folder);
-                var projectPath = FindProjectByUserSecretsId(solution, userSecretsId);
 
-                if (projectPath != null)
-                {
-                    var project = new ProjectSecretModel { ProjectName = Path.GetFileNameWithoutExtension(projectPath) };
-                    ParseSecretsJson(secretsJsonPath, project);
-                    Projects.Add(project);
-                }
-            }
+            if (!File.Exists(secretsJsonPath))
+                continue;
+
+            string userSecretsId = Path.GetFileName(folder);
+            var projectPath = FindProjectByUserSecretsId(solution, userSecretsId);
+
+            if (projectPath == null)
+                continue;
+
+            var project = new ProjectSecretModel
+            {
+                ProjectName = Path.GetFileNameWithoutExtension(projectPath),
+
+                // Сохраняем путь
+                UserSecretsJsonPath = secretsJsonPath
+            };
+            ParseSecretsJson(secretsJsonPath, project);
+            Projects.Add(project);
         }
     }
 
+    // Но и сами блоки секций, а тут они тупо пропускаются. Тем не менее не закомментированные секций спарсились и даже UI отобразил хоть что-то) А это уже круто.
+    // Логичнее будет там просто по regex, который ты уже сообразил какой нужен искать строки, исключая "//". А потом смотреть если они начинаются с "//", значит это закоммментированная секция, иначе - активная.Короче, я это сделаю.
+    // 
+    // значит это закоммментированная секция, иначе - активная - ЗАДАТЬ IsSelected для RadioButton, то есть она должна быть активна на UI (!!!!)
     private void ParseSecretsJson(string secretsJsonPath, ProjectSecretModel project)
     {
         try
         {
-            var lines = File.ReadAllLines(secretsJsonPath);
+            var userSecretsJsonLines = File.ReadAllLines(secretsJsonPath);
 
             // Словарь для хранения секций и их вариантов
-            var sectionVariants = new Dictionary<string, List<(string Value, bool IsCommented, string Comment)>>();
-            string currentComment = null;
+            var sectionVariants = new Dictionary<string, List<(string Value, bool IsCommented, string Comment, string RawContent)>>();
 
-            foreach (var line in lines)
+            for (var i = 0; i < userSecretsJsonLines.Length; i++)
             {
+                var line = userSecretsJsonLines[i];
+
                 string trimmedLine = line.Trim();
 
-                // Проверяем комментарии
-                if (trimmedLine.StartsWith("//"))
-                {
-                    currentComment = trimmedLine.Substring(2).Trim();
-                    continue;
-                }
-
                 // Пропускаем пустые строки и не-JSON
-                if (string.IsNullOrWhiteSpace(trimmedLine) || !trimmedLine.Contains(":")) continue;
+                if (string.IsNullOrWhiteSpace(trimmedLine) || !trimmedLine.Contains(":"))
+                    continue;
 
                 // Извлекаем ключ и значение
-                var match = Regex.Match(trimmedLine, @"[""']?([^""':]+)[""']?\s*:\s*(.+?)\s*,?\s*$");
-                if (!match.Success) continue;
+                var match = Regex.Match(trimmedLine, @"^//\s*[""']?([^""':]+)[""']?\s*:\s*(.+?)\s*,?\s*$|^[""']?([^""':]+)[""']?\s*:\s*(.+?)\s*,?\s*$");
+                if (!match.Success)
+                    continue;
 
-                string key = match.Groups[1].Value;
-                string value = match.Groups[2].Value.Trim();
-                bool isCommented = trimmedLine.StartsWith("//");
+                bool isSectionCommented = trimmedLine.StartsWith("//");
+                string sectionKey = isSectionCommented ? match.Groups[1].Value : match.Groups[3].Value;
+                string sectionValue = isSectionCommented ? match.Groups[2].Value : match.Groups[4].Value;
 
-                if (isCommented)
+                if (isSectionCommented)
                 {
-                    value = value.TrimStart('/'); // Убираем комментарии из значения
+                    sectionValue = sectionValue.TrimStart('/'); // Убираем комментарии из значения
                 }
 
-                if (!sectionVariants.ContainsKey(key))
+                if (!sectionVariants.ContainsKey(sectionKey))
                 {
-                    sectionVariants[key] = new List<(string, bool, string)>();
+                    sectionVariants[sectionKey] = new List<(string, bool, string, string)>();
                 }
 
-                sectionVariants[key].Add((value, isCommented, currentComment));
-                currentComment = null; // Сбрасываем комментарий после использования
+                var previousLine = userSecretsJsonLines[i - 1];
+
+                sectionVariants[sectionKey].Add((sectionValue, isSectionCommented, TryParsePureComment(previousLine, out var comment) ? comment : null, line)!);
             }
 
             // Заполняем модели
@@ -238,10 +246,11 @@ public class SecretsViewModel : INotifyPropertyChanged
                                 SectionName = kvp.Key,
                                 Value = v.Value,
                                 Description = v.Comment ?? $"{kvp.Key} variant {variantIndex + 1}",
-                                IsSelected = !v.IsCommented // Активен тот, что не закомментирован
+                                IsSelected = !v.IsCommented, // Активен тот, что не закомментирован
+                                RawContent = v.RawContent
                             }))
                     };
-                    group.SelectedVariant = group.SectionVariants.FirstOrDefault(v => v.IsSelected) ?? group.SectionVariants.First();
+                    group.SelectedVariant = group.SectionVariants.FirstOrDefault(v => v.IsSelected);
                     return group;
                 }));
         }
@@ -251,17 +260,40 @@ public class SecretsViewModel : INotifyPropertyChanged
         }
     }
 
-    private string? FindProjectByUserSecretsId(IVsSolution solution, string userSecretsId)
+    private static bool TryParsePureComment(string line, out string comment)
+    {
+        string trimmedLine = line.TrimStart();
+
+        // Если строка не начинается с "//", это точно не комментарий
+        if (!trimmedLine.StartsWith("//"))
+        {
+            comment = string.Empty;
+            return false;
+        }
+
+        // Убираем "//" и пробелы после него
+        comment = trimmedLine.Substring(2).TrimStart();
+
+        // Проверяем, что строка НЕ содержит JSON-структуру
+        // Чистый комментарий не должен содержать двоеточие с кавычками или без
+        return !Regex.IsMatch(comment, @"[""']?[^""':]+[""']?\s*:\s*.+");
+    }
+
+    private static string? FindProjectByUserSecretsId(IVsSolution solution, string userSecretsId)
     {
         ThreadHelper.ThrowIfNotOnUIThread();
 
-        solution.GetProjectEnum((uint)__VSENUMPROJFLAGS.EPF_LOADEDINSOLUTION, Guid.Empty, out var enumerator);
+        solution.GetProjectEnum((uint)__VSENUMPROJFLAGS.EPF_LOADEDINSOLUTION, Guid.Empty, out var projectsEnumerator);
         var projects = new IVsHierarchy[1];
 
-        while (enumerator.Next(1, projects, out var fetched) == 0 && fetched == 1)
+        while (projectsEnumerator.Next(1, projects, out var fetched) == 0 && fetched == 1)
         {
-            projects[0].GetProperty((uint)VSConstants.VSITEMID.Root, (int)__VSHPROPID.VSHPROPID_ProjectDir, out var projectDir);
-            var csprojFiles = Directory.GetFiles(projectDir.ToString(), "*.csproj", SearchOption.AllDirectories);
+            projects[0].GetProperty((uint)VSConstants.VSITEMID.Root, (int)__VSHPROPID.VSHPROPID_ProjectDir, out var projectDirectory);
+
+            if(projectDirectory == null)
+                continue;
+
+            var csprojFiles = Directory.GetFiles(projectDirectory.ToString(), "*.csproj", SearchOption.AllDirectories);
 
             foreach (var csprojFile in csprojFiles)
             {
@@ -279,28 +311,81 @@ public class SecretsViewModel : INotifyPropertyChanged
     // TODO: получать группу секций с дубликатами с разными вариантами одной и той же секции для их переключения
     public void SwitchSelectedSection((SecretSectionGroupModel secretSectionGroup, SecretSectionModel selectedSecretSection) tuple)
     {
-        // Закомментировать все остальные секции в проекте
+        ThreadHelper.ThrowIfNotOnUIThread();
+
         foreach (var secretSectionModel in tuple.secretSectionGroup.SectionVariants)
         {
-            if (secretSectionModel == tuple.selectedSecretSection)
-            {
-                secretSectionModel.Value = secretSectionModel.Value.Replace("\\* ", "");
-                secretSectionModel.Value = secretSectionModel.Value.Replace(" *\\", "");
-
-                secretSectionModel.IsSelected = true;
-
-                continue;
-            }
-            
-            secretSectionModel.Value = $"\\* {secretSectionModel.Value} *\\";
-            secretSectionModel.IsSelected = false;
+            secretSectionModel.IsSelected = secretSectionModel == tuple.selectedSecretSection;
         }
-
         tuple.secretSectionGroup.SelectedVariant = tuple.selectedSecretSection;
 
-        // Сделать выбранную секцию активной
-        //tuple.selectedSecretSection.IsSelected = true;
+        var project = Projects.FirstOrDefault(p => p.SectionGroups.Contains(tuple.secretSectionGroup));
+        if (project != null)
+        {
+            UpdateSecretsJson(project, tuple.secretSectionGroup);
+        }
+    }
 
-        // Для выбранной секции раскомментировать, остальные закомментировать
+    private void UpdateSecretsJson(ProjectSecretModel project, SecretSectionGroupModel updatedGroup)
+    {
+        if (string.IsNullOrEmpty(project.UserSecretsJsonPath) || !File.Exists(project.UserSecretsJsonPath))
+        {
+            OnShowMessage($"Файл секретов для {project.ProjectName} не найден.");
+            return;
+        }
+
+        var lines = File.ReadAllLines(project.UserSecretsJsonPath).ToList();
+        var updatedLines = new List<string>();
+
+        foreach (var line in lines)
+        {
+            string trimmedLine = line.Trim();
+
+            if (string.IsNullOrWhiteSpace(trimmedLine))
+            {
+                updatedLines.Add(line);
+                continue;
+            }
+
+            if (TryParsePureComment(line, out _))
+            {
+                updatedLines.Add(line);
+                continue;
+            }
+
+            var match = Regex.Match(trimmedLine, @"^//\s*[""']?([^""':]+)[""']?\s*:\s*(.+?)\s*,?\s*$|^[""']?([^""':]+)[""']?\s*:\s*(.+?)\s*,?\s*$");
+            if (!match.Success)
+            {
+                updatedLines.Add(line);
+                continue;
+            }
+
+            bool isCommented = trimmedLine.StartsWith("//");
+            string key = isCommented ? match.Groups[1].Value : match.Groups[3].Value;
+            string value = isCommented ? match.Groups[2].Value : match.Groups[4].Value;
+
+            if (key == updatedGroup.SectionName)
+            {
+                var variant = updatedGroup.SectionVariants.FirstOrDefault(v => v.Value.Trim() == value.Trim());
+                if (variant != null)
+                {
+                    string formattedValue = $"\"{key}\": {value}";
+                    string newLine = variant.IsSelected ? formattedValue : $"// {formattedValue}";
+                    updatedLines.Add(newLine);
+                    continue;
+                }
+            }
+
+            updatedLines.Add(line);
+        }
+
+        try
+        {
+            File.WriteAllLines(project.UserSecretsJsonPath, updatedLines);
+        }
+        catch (Exception ex)
+        {
+            OnShowMessage($"Ошибка при записи в {project.UserSecretsJsonPath}: {ex.Message}");
+        }
     }
 }

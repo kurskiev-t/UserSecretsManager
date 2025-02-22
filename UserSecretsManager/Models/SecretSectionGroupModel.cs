@@ -21,5 +21,5 @@ public class SecretSectionGroupModel
     /// <summary>
     /// Выбранный вариант секции
     /// </summary>
-    public SecretSectionModel SelectedVariant { get; set; } = null!;
+    public SecretSectionModel? SelectedVariant { get; set; }
 }
