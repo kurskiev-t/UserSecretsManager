@@ -307,51 +307,75 @@ public class SecretsViewModel : INotifyPropertyChanged
         return null;
     }
 
+    // Флаг для программных изменений
+    private bool _isProgrammaticUpdate = false;
+
     public void SwitchSelectedSection((SecretSectionGroupModel secretSectionGroup, SecretSectionModel selectedSecretSection) tuple)
     {
         ThreadHelper.ThrowIfNotOnUIThread();
 
-        foreach (var secretSectionModel in tuple.secretSectionGroup.SectionVariants)
+        _isProgrammaticUpdate = true;
+
+        try
         {
-            secretSectionModel.IsSelected = secretSectionModel == tuple.selectedSecretSection;
-        }
-        tuple.secretSectionGroup.SelectedVariant = tuple.selectedSecretSection;
-
-        var project = Projects.First(p => p.SectionGroups.Contains(tuple.secretSectionGroup));
-
-        var selectedSectionDescription = tuple.selectedSecretSection.Description;
-
-        foreach (var secretSectionGroup in project.SectionGroups.Where(group => group != tuple.secretSectionGroup))
-        {
-            var matchingVariant = secretSectionGroup.SectionVariants.FirstOrDefault(v => v.Description == selectedSectionDescription);
-            
-            if (matchingVariant == null)
-                continue;
-
-            foreach (var variant in secretSectionGroup.SectionVariants)
+            foreach (var secretSectionModel in tuple.secretSectionGroup.SectionVariants)
             {
-                variant.IsSelected = variant == matchingVariant;
+                secretSectionModel.IsSelected = secretSectionModel == tuple.selectedSecretSection;
+            }
+            tuple.secretSectionGroup.SelectedVariant = tuple.selectedSecretSection;
+
+            var project = Projects.First(p => p.SectionGroups.Contains(tuple.secretSectionGroup));
+
+            var selectedSectionDescription = tuple.selectedSecretSection.Description;
+
+            foreach (var secretSectionGroup in project.SectionGroups.Where(group => group != tuple.secretSectionGroup))
+            {
+                var matchingVariant = secretSectionGroup.SectionVariants.FirstOrDefault(v => v.Description == selectedSectionDescription);
+
+                if (matchingVariant == null)
+                    continue;
+
+                foreach (var variant in secretSectionGroup.SectionVariants)
+                {
+                    variant.IsSelected = variant == matchingVariant;
+                }
+
+                secretSectionGroup.SelectedVariant = matchingVariant;
             }
 
-            secretSectionGroup.SelectedVariant = matchingVariant;
+            UpdateSecretsJson(project);
         }
-
-        UpdateSecretsJson(project);
+        finally
+        {
+            _isProgrammaticUpdate = false;
+        }
     }
 
+    private bool _isUpdating = false;
     private void UpdateRawContent(SecretSectionModel sectionModel)
     {
-        if (sectionModel == null)
+        if (sectionModel == null || _isUpdating || _isProgrammaticUpdate)
             return;
 
-        var project = Projects.FirstOrDefault(p => p.SectionGroups.Any(g => g.SectionVariants.Contains(sectionModel)));
-        
-        if (project != null)
+        // Защита от рекурсии
+        _isUpdating = true;
+
+        try
         {
+            var project =
+                Projects.FirstOrDefault(p => p.SectionGroups.Any(g => g.SectionVariants.Contains(sectionModel)));
+
+            if (project == null)
+                return;
+            
             UpdateSecretsJson(project, sectionModel);
         }
+        finally
+        {
+            _isUpdating = false;
+        }
     }
-
+    
     private void UpdateSecretsJson(ProjectSecretModel project)
     {
         ThreadHelper.ThrowIfNotOnUIThread();
