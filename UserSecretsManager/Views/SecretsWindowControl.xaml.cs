@@ -13,15 +13,17 @@ namespace UserSecretsManager.Views
         {
             InitializeComponent();
 
-            // var _ = new Microsoft.Xaml.Behaviors.DefaultTriggerAttribute(typeof(Trigger), typeof(Microsoft.Xaml.Behaviors.TriggerBase), null);
+            // fix error
+            var _ = new Microsoft.Xaml.Behaviors.DefaultTriggerAttribute(typeof(Trigger), typeof(Microsoft.Xaml.Behaviors.TriggerBase), null);
         }
 
+        // TODO: Implement through binding to a command ?
         private void UserControl_Loaded(object sender, RoutedEventArgs e)
         {
             if (DataContext is SecretsViewModel viewModel)
                 viewModel.ShowMessage += OnShowMessage;
         }
-
+        
         private void OnShowMessage(object sender, string message)
         {
             // Здесь можно либо показать MessageBox, либо вызвать отдельную View для сообщения
