@@ -12,6 +12,8 @@ namespace UserSecretsManager.Views
         public SecretsWindowControl()
         {
             InitializeComponent();
+
+            // var _ = new Microsoft.Xaml.Behaviors.DefaultTriggerAttribute(typeof(Trigger), typeof(Microsoft.Xaml.Behaviors.TriggerBase), null);
         }
 
         private void UserControl_Loaded(object sender, RoutedEventArgs e)

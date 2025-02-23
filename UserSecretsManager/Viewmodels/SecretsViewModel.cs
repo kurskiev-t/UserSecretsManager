@@ -34,6 +34,8 @@ public class SecretsViewModel : INotifyPropertyChanged
 
     public event PropertyChangedEventHandler PropertyChanged;
 
+    private static readonly Regex SectionRegex = new Regex(@"^//\s*[""']?([^""':]+)[""']?\s*:\s*(.+?)\s*,?\s*$|^[""']?([^""':]+)[""']?\s*:\s*(.+?)\s*,?\s*$");
+
     #region Protected members
 
     protected virtual void OnPropertyChanged([CallerMemberName] string propertyName = null)
@@ -133,6 +135,8 @@ public class SecretsViewModel : INotifyPropertyChanged
 
     public ICommand SwitchSectionVariantCommand => new RelayCommand<(SecretSectionGroupModel SecretSectionGroup, SecretSectionModel SelectedSecretSection)>((groupWithSectionTuple) => SwitchSelectedSection(groupWithSectionTuple));
 
+    public ICommand UpdateRawContentCommand => new RelayCommand<SecretSectionModel>(UpdateRawContent);
+
     public void ScanUserSecrets()
     {
         ThreadHelper.ThrowIfNotOnUIThread();
@@ -185,11 +189,7 @@ public class SecretsViewModel : INotifyPropertyChanged
             Projects.Add(project);
         }
     }
-
-    // Но и сами блоки секций, а тут они тупо пропускаются. Тем не менее не закомментированные секций спарсились и даже UI отобразил хоть что-то) А это уже круто.
-    // Логичнее будет там просто по regex, который ты уже сообразил какой нужен искать строки, исключая "//". А потом смотреть если они начинаются с "//", значит это закоммментированная секция, иначе - активная.Короче, я это сделаю.
-    // 
-    // значит это закоммментированная секция, иначе - активная - ЗАДАТЬ IsSelected для RadioButton, то есть она должна быть активна на UI (!!!!)
+    
     private void ParseSecretsJson(string secretsJsonPath, ProjectSecretModel project)
     {
         try
@@ -212,7 +212,7 @@ public class SecretsViewModel : INotifyPropertyChanged
                     continue;
                 }
 
-                var match = Regex.Match(trimmedLine, @"^//\s*[""']?([^""':]+)[""']?\s*:\s*(.+?)\s*,?\s*$|^[""']?([^""':]+)[""']?\s*:\s*(.+?)\s*,?\s*$");
+                var match = SectionRegex.Match(trimmedLine);
                 if (!match.Success)
                     continue;
 
@@ -339,6 +339,19 @@ public class SecretsViewModel : INotifyPropertyChanged
         UpdateSecretsJson(project);
     }
 
+    private void UpdateRawContent(SecretSectionModel sectionModel)
+    {
+        if (sectionModel == null)
+            return;
+
+        var project = Projects.FirstOrDefault(p => p.SectionGroups.Any(g => g.SectionVariants.Contains(sectionModel)));
+        
+        if (project != null)
+        {
+            UpdateSecretsJson(project, sectionModel);
+        }
+    }
+
     private void UpdateSecretsJson(ProjectSecretModel project)
     {
         ThreadHelper.ThrowIfNotOnUIThread();
@@ -385,6 +398,56 @@ public class SecretsViewModel : INotifyPropertyChanged
         try
         {
             File.WriteAllLines(project.UserSecretsJsonPath, updatedLines);
+        }
+        catch (Exception ex)
+        {
+            OnShowMessage($"Ошибка при записи в {project.UserSecretsJsonPath}: {ex.Message}");
+        }
+    }
+
+    private void UpdateSecretsJson(ProjectSecretModel project, SecretSectionModel secretSection)
+    {
+        ThreadHelper.ThrowIfNotOnUIThread();
+
+        if (string.IsNullOrEmpty(project.UserSecretsJsonPath) || !File.Exists(project.UserSecretsJsonPath))
+        {
+            OnShowMessage($"Файл секретов для {project.ProjectName} не найден.");
+            return;
+        }
+
+        var lines = File.ReadAllLines(project.UserSecretsJsonPath).ToList();
+        string newSectionKey = null;
+
+        for (var i = 0; i < lines.Count; i++)
+        {
+            var currentLine = lines[i];
+
+            string trimmedLine = currentLine.Trim();
+
+            if (secretSection.PreviousRawContent.Trim() != trimmedLine)
+                continue;
+
+            var match = SectionRegex.Match(secretSection.RawContent.Trim());
+
+            if (match.Success)
+            {
+                bool isSectionCommented = trimmedLine.StartsWith("//");
+                newSectionKey = isSectionCommented ? match.Groups[1].Value : match.Groups[3].Value;
+            }
+            
+            lines[i] = secretSection.RawContent;
+            break;
+        }
+
+        try
+        {
+            File.WriteAllLines(project.UserSecretsJsonPath, lines);
+
+            if (secretSection.SectionName != newSectionKey)
+            {
+                // Пересканировать секреты пользователей, т. к. ключ секции поменялся
+                ScanUserSecrets();
+            }
         }
         catch (Exception ex)
         {
