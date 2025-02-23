@@ -32,3 +32,9 @@ See screenshots below:
 ![Screenshot 1](1.jpg)
 
 ![Screenshot 2](2.jpg)
+
+## Building from Source
+1. Clone the repository: `git clone https://github.com/kurskiev-t/UserSecretsManager`
+2. Open in Visual Studio 2019+.
+3. Build in Release mode (`Ctrl+Shift+B`).
+4. Install the `.vsix` from `bin/Release`.
