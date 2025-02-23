@@ -1,4 +1,4 @@
-User Secrets Manager extension
+## User Secrets Manager extension
 
 I've made this extension for myself. At the moment it's pretty rough version, any help will be appreaciated.
 Here's github page of the project:
