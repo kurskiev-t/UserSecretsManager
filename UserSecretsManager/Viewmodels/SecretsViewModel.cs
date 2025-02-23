@@ -1,7 +1,6 @@
 ﻿using Microsoft.VisualStudio;
 using Microsoft.VisualStudio.Shell;
 using Microsoft.VisualStudio.Shell.Interop;
-using Microsoft.VisualStudio.Text.Differencing;
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
@@ -11,7 +10,6 @@ using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Text.RegularExpressions;
 using System.Windows;
-using System.Windows.Controls;
 using System.Windows.Input;
 using UserSecretsManager.Commands;
 using UserSecretsManager.Models;
@@ -191,11 +189,7 @@ public class SecretsViewModel : INotifyPropertyChanged
             Projects.Add(project);
         }
     }
-
-    // Но и сами блоки секций, а тут они тупо пропускаются. Тем не менее не закомментированные секций спарсились и даже UI отобразил хоть что-то) А это уже круто.
-    // Логичнее будет там просто по regex, который ты уже сообразил какой нужен искать строки, исключая "//". А потом смотреть если они начинаются с "//", значит это закоммментированная секция, иначе - активная.Короче, я это сделаю.
-    // 
-    // значит это закоммментированная секция, иначе - активная - ЗАДАТЬ IsSelected для RadioButton, то есть она должна быть активна на UI (!!!!)
+    
     private void ParseSecretsJson(string secretsJsonPath, ProjectSecretModel project)
     {
         try
