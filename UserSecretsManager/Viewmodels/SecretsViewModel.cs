@@ -321,24 +321,59 @@ public class SecretsViewModel : INotifyPropertyChanged
             var project = Projects.First(p => p.SectionGroups.Contains(tuple.secretSectionGroup));
             var selectedDescription = tuple.selectedSecretSection.Description;
 
-            // Собираем все связанные группы через пересечение Description
+            #region Grok Version
+
+
+
+            //// Собираем все связанные группы через пересечение Description
+            //var processedGroups = new HashSet<SecretSectionGroupModel>();
+            //var descriptionsToProcess = new HashSet<string> { selectedDescription };
+            //var allDescriptions = new HashSet<string>();
+
+            //while (descriptionsToProcess.Any())
+            //{
+            //    var currentDescriptions = new HashSet<string>(descriptionsToProcess);
+            //    descriptionsToProcess.Clear();
+
+            //    foreach (var group in project.SectionGroups.Where(g => !processedGroups.Contains(g)))
+            //    {
+            //        var groupDescriptions = group.SectionVariants.Select(v => v.Description).ToHashSet();
+            //        if (groupDescriptions.Intersect(currentDescriptions).Any())
+            //        {
+            //            processedGroups.Add(group);
+            //            allDescriptions.UnionWith(groupDescriptions);
+            //            descriptionsToProcess.UnionWith(groupDescriptions.Except(currentDescriptions));
+            //        }
+            //    }
+            //}
+
+
+
+            #endregion
+
             var processedGroups = new HashSet<SecretSectionGroupModel>();
-            var descriptionsToProcess = new HashSet<string> { selectedDescription };
-            var allDescriptions = new HashSet<string>();
+            var descriptionsSet = new HashSet<string>(tuple.secretSectionGroup.SectionVariants.Select(x => x.Description));
+            var groupsQueue = new Queue<SecretSectionGroupModel>();
 
-            while (descriptionsToProcess.Any())
+            // Добавляем начальную группу
+            processedGroups.Add(tuple.secretSectionGroup);
+            groupsQueue.Enqueue(tuple.secretSectionGroup);
+
+            while (groupsQueue.Any())
             {
-                var currentDescriptions = new HashSet<string>(descriptionsToProcess);
-                descriptionsToProcess.Clear();
+                var currentGroup = groupsQueue.Dequeue();
 
-                foreach (var group in project.SectionGroups.Where(g => !processedGroups.Contains(g)))
+                // Проверяем только непроверенные группы
+                foreach (var group in project.SectionGroups.Except(processedGroups))
                 {
-                    var groupDescriptions = group.SectionVariants.Select(v => v.Description).ToHashSet();
-                    if (groupDescriptions.Intersect(currentDescriptions).Any())
+                    var groupDescriptions = group.SectionVariants.Select(x => x.Description).ToHashSet();
+                    if (groupDescriptions.Intersect(descriptionsSet).Any())
                     {
+                        // Добавляем новые описания
+                        descriptionsSet.UnionWith(groupDescriptions);
+                        // Добавляем группу в очередь и отмечаем как обработанную
+                        groupsQueue.Enqueue(group);
                         processedGroups.Add(group);
-                        allDescriptions.UnionWith(groupDescriptions);
-                        descriptionsToProcess.UnionWith(groupDescriptions.Except(currentDescriptions));
                     }
                 }
             }
@@ -350,7 +385,7 @@ public class SecretsViewModel : INotifyPropertyChanged
                 foreach (var secretSectionModel in secretSectionGroup.SectionVariants)
                 {
                     secretSectionModel.IsSelected = secretSectionModel.Description == selectedDescription;
-                    
+
                     if (secretSectionModel.IsSelected)
                         secretSectionGroup.SelectedVariant = secretSectionModel;
 
