@@ -318,29 +318,45 @@ public class SecretsViewModel : INotifyPropertyChanged
 
         try
         {
-            foreach (var secretSectionModel in tuple.secretSectionGroup.SectionVariants)
-            {
-                secretSectionModel.IsSelected = secretSectionModel == tuple.selectedSecretSection;
-            }
-            tuple.secretSectionGroup.SelectedVariant = tuple.selectedSecretSection;
-
             var project = Projects.First(p => p.SectionGroups.Contains(tuple.secretSectionGroup));
+            var selectedDescription = tuple.selectedSecretSection.Description;
 
-            var selectedSectionDescription = tuple.selectedSecretSection.Description;
+            // Собираем все связанные группы через пересечение Description
+            var processedGroups = new HashSet<SecretSectionGroupModel>();
+            var descriptionsToProcess = new HashSet<string> { selectedDescription };
+            var allDescriptions = new HashSet<string>();
 
-            foreach (var secretSectionGroup in project.SectionGroups.Where(group => group != tuple.secretSectionGroup))
+            while (descriptionsToProcess.Any())
             {
-                var matchingVariant = secretSectionGroup.SectionVariants.FirstOrDefault(v => v.Description == selectedSectionDescription);
+                var currentDescriptions = new HashSet<string>(descriptionsToProcess);
+                descriptionsToProcess.Clear();
 
-                if (matchingVariant == null)
-                    continue;
-
-                foreach (var variant in secretSectionGroup.SectionVariants)
+                foreach (var group in project.SectionGroups.Where(g => !processedGroups.Contains(g)))
                 {
-                    variant.IsSelected = variant == matchingVariant;
+                    var groupDescriptions = group.SectionVariants.Select(v => v.Description).ToHashSet();
+                    if (groupDescriptions.Intersect(currentDescriptions).Any())
+                    {
+                        processedGroups.Add(group);
+                        allDescriptions.UnionWith(groupDescriptions);
+                        descriptionsToProcess.UnionWith(groupDescriptions.Except(currentDescriptions));
+                    }
                 }
+            }
 
-                secretSectionGroup.SelectedVariant = matchingVariant;
+            // Обновляем все группы
+            // Обновляем только связанные группы
+            foreach (var secretSectionGroup in processedGroups)
+            {
+                foreach (var secretSectionModel in secretSectionGroup.SectionVariants)
+                {
+                    secretSectionModel.IsSelected = secretSectionModel.Description == selectedDescription;
+                    
+                    if (secretSectionModel.IsSelected)
+                        secretSectionGroup.SelectedVariant = secretSectionModel;
+
+                    else if (secretSectionGroup.SelectedVariant == secretSectionModel)
+                        secretSectionGroup.SelectedVariant = null; // Сбрасываем SelectedVariant только для связанных
+                }
             }
 
             UpdateSecretsJson(project);
