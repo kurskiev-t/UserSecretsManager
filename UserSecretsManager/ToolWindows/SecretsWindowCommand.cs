@@ -82,7 +82,7 @@ namespace UserSecretsManager.ToolWindows
         /// <param name="e">The event args.</param>
         private void Execute(object sender, EventArgs e)
         {
-            this.package.JoinableTaskFactory.RunAsync(async delegate
+            ThreadHelper.JoinableTaskFactory.RunAsync(async delegate
             {
                 ToolWindowPane window = await this.package.ShowToolWindowAsync(typeof(SecretsWindow), 0, true, this.package.DisposalToken);
                 if ((null == window) || (null == window.Frame))
