@@ -10,6 +10,8 @@ Here's github page of the project:
 
 It scans a solution for user secrets files for all projects, categorizes them by each section in those files. Groups those sections by the keys and allows to switch between active sections by chosing radio button options.
 
+At the moment it supports only single-line sections in user secrets file. I'm working on making this more universal
+
 User Secrets file example:
 ```json
 {
