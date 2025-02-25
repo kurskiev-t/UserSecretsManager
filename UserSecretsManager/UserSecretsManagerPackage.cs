@@ -1,8 +1,11 @@
-﻿using System;
+﻿using Community.VisualStudio.Toolkit;
+using Microsoft.VisualStudio.Shell;
+using Microsoft.VisualStudio.Shell.Interop;
+using System;
 using System.Runtime.InteropServices;
 using System.Threading;
-using Microsoft.VisualStudio.Shell;
-using UserSecretsManager.ToolWindows;
+using System.Windows;
+using System.Windows.Forms;
 using Task = System.Threading.Tasks.Task;
 
 namespace UserSecretsManager
@@ -48,7 +51,19 @@ namespace UserSecretsManager
         {
             // When initialized asynchronously, the current thread may be a background thread at this point.
             // Do any initialization that requires the UI thread after switching to the UI thread.
-            await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync(cancellationToken);
+            await this.JoinableTaskFactory.SwitchToMainThreadAsync(cancellationToken);
+
+            // Проверка версии через VS.Shell
+            var vsVersion = await VS.Shell.GetVsVersionAsync();
+            if (vsVersion == null || vsVersion.Major < 17 || (vsVersion.Major == 17 && vsVersion.Minor < 13))
+            {
+                await VS.MessageBox.ShowAsync(
+                    "User Secrets Manager",
+                    $"This extension requires Visual Studio 2022 version 17.13 or higher. Current version: {vsVersion}",
+                    OLEMSGICON.OLEMSGICON_WARNING,
+                    OLEMSGBUTTON.OLEMSGBUTTON_OK);
+            }
+
             await UserSecretsManager.ToolWindows.SecretsWindowCommand.InitializeAsync(this);
         }
 
