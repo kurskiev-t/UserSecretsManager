@@ -1,4 +1,6 @@
-﻿using Microsoft.VisualStudio;
+﻿using Community.VisualStudio.Toolkit;
+using EnvDTE;
+using Microsoft.VisualStudio;
 using Microsoft.VisualStudio.Shell;
 using Microsoft.VisualStudio.Shell.Interop;
 using System;
@@ -9,6 +11,7 @@ using System.IO;
 using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Text.RegularExpressions;
+using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Input;
 using UserSecretsManager.Commands;
@@ -136,6 +139,28 @@ public class SecretsViewModel : INotifyPropertyChanged
     public ICommand SwitchSectionVariantCommand => new RelayCommand<(SecretSectionGroupModel SecretSectionGroup, SecretSectionModel SelectedSecretSection)>((groupWithSectionTuple) => SwitchSelectedSection(groupWithSectionTuple));
 
     public ICommand UpdateRawContentCommand => new RelayCommand<SecretSectionModel>(UpdateRawContent);
+
+    public ICommand ShowSecretsFileCommand => new RelayCommand<ProjectSecretModel>(async (projectSecretModel) => await ShowSecretsFile(projectSecretModel));
+
+    private async Task ShowSecretsFile(ProjectSecretModel project)
+    {
+        await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
+
+        if (string.IsNullOrEmpty(project.UserSecretsJsonPath) || !File.Exists(project.UserSecretsJsonPath))
+        {
+            OnShowMessage($"Файл секретов для {project.ProjectName} не найден.");
+            return;
+        }
+
+        try
+        {
+            await VS.Documents.OpenAsync(project.UserSecretsJsonPath);
+        }
+        catch (Exception ex)
+        {
+            OnShowMessage($"Ошибка при открытии файла: {ex.Message}");
+        }
+    }
 
     public void ScanUserSecrets()
     {
