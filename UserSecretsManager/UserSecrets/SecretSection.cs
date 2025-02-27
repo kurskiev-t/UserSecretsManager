@@ -38,4 +38,9 @@ public class SecretSection
     /// Ключ секции (например, "ConnectionStrings"), null для комментариев
     /// </summary>
     public string? Key { get; set; }
+
+    /// <summary>
+    /// Идет ли эта секция сразу после предыдущей (связаны ли секции)
+    /// </summary>
+    public bool IsPreviousSectionConnected { get; set; }
 }

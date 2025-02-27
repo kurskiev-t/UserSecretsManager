@@ -12,7 +12,7 @@ namespace UserSecretsManager.Helpers;
 public static class UserSecretsHelper
 {
     // TODO: or take in the file itself, or a stream
-    public static IEnumerable<SecretLine> GetUserSecretSections(string userSecretsFilePath)
+    public static IEnumerable<SecretLine> GetUserSecretSectionsMyVersion(string userSecretsFilePath)
     {
         // using var stream = new MemoryStream();
 
@@ -149,34 +149,135 @@ public static class UserSecretsHelper
         return Enumerable.Empty<SecretLine>();
     }
 
-    private static List<string> GetLines(string secretJson)
+    public static IEnumerable<SecretSection> GetUserSecretSections(string userSecretsFilePath)
     {
-        var result = new List<string>();
+        var jsonLines = File.ReadAllLines(userSecretsFilePath);
+        var sections = new List<SecretSection>();
+        int currentCharIndex = 0;
 
-        var jsonSpan = secretJson.AsSpan();
-
-        int start = 0;
-
-        while (start < jsonSpan.Length)
+        for (int i = 0; i < jsonLines.Length; i++)
         {
-            int end = jsonSpan.Slice(start).IndexOf('\n');
+            string jsonLine = jsonLines[i];
+            string trimmedLine = jsonLine.TrimStart();
+            bool isCommentedLine = trimmedLine.StartsWith("//");
+            int lineStartIndex = currentCharIndex;
+            currentCharIndex += jsonLine.Length + Environment.NewLine.Length;
 
-            // Последняя строка
-            if (end == -1)
-                end = jsonSpan.Length - start;
+            var section = new SecretSection
+            {
+                IsActive = !isCommentedLine,
+                StartingLineIndex = i,
+                StartIndex = lineStartIndex,
+                SectionLines = new List<SecretLine>
+            {
+                new SecretLine
+                {
+                    RawContent = jsonLine,
+                    TrimmedLine = trimmedLine,
+                    LineIndex = i,
+                    StartIndex = lineStartIndex,
+                    Value = isCommentedLine && !trimmedLine.Contains(":") ? trimmedLine.Substring(2).Trim() : null
+                }
+            }
+            };
 
-            var line = jsonSpan.Slice(start, end);
+            // Определяем тип секции
+            var sectionKeyMatch = Regex.Match(trimmedLine, @"^(?://)?\s*""([^""]+)""\s*:");
+            if (sectionKeyMatch.Success)
+            {
+                section.Key = sectionKeyMatch.Groups[1].Value;
 
-            if (line.EndsWith("\r".AsSpan()))
-                line = line.Slice(start, line.Length - 1);
+                // Блок с круглыми скобками {}
+                if (trimmedLine.Contains("{"))
+                {
+                    ProcessBracketBlock(section, jsonLines, ref i, ref currentCharIndex, '{', '}');
+                }
+                // Блок с квадратными скобками []
+                else if (trimmedLine.Contains("["))
+                {
+                    ProcessBracketBlock(section, jsonLines, ref i, ref currentCharIndex, '[', ']');
+                }
+            }
+            // Чистый комментарий или пустая строка
+            else
+            {
+                section.IsPureComment = isCommentedLine && !string.IsNullOrWhiteSpace(trimmedLine);
+                section.Key = null;
+            }
 
-            result.Add(line.ToString());
+            // Устанавливаем PrecedingComment и IsPreviousSectionConnected
+            if (sections.Count > 0)
+            {
+                var lastSection = sections[sections.Count - 1];
+                if (lastSection.IsPureComment)
+                {
+                    section.PrecedingComment = lastSection;
+                }
+                else if (lastSection.Key != null && lastSection.StartingLineIndex + lastSection.SectionLines.Count == section.StartingLineIndex)
+                {
+                    section.IsPreviousSectionConnected = true;
+                    if (lastSection.PrecedingComment != null)
+                        section.PrecedingComment = lastSection.PrecedingComment;
+                }
+            }
 
-            // Пропускаем \n
-            start += end + 1;
+            sections.Add(section);
         }
 
-        return result;
+        return sections;
+    }
+
+    // Метод для обработки блоков {} и []
+    private static void ProcessBracketBlock(SecretSection section, string[] jsonLines, ref int i, ref int currentCharIndex, char openBracket, char closeBracket)
+    {
+        int bracketCount = section.SectionLines[0].TrimmedLine.Count(c => c == openBracket);
+        bracketCount -= section.SectionLines[0].TrimmedLine.Count(c => c == closeBracket);
+
+        while (bracketCount > 0 && i + 1 < jsonLines.Length)
+        {
+            i++;
+            string jsonLine = jsonLines[i];
+            string trimmedLine = jsonLine.TrimStart();
+            int lineStartIndex = currentCharIndex;
+            currentCharIndex += jsonLine.Length + Environment.NewLine.Length;
+
+            // Проверка бардака
+            if (!section.IsActive && !trimmedLine.StartsWith("//"))
+            {
+                throw new FormatException($"Inconsistent commenting in section '{section.Key}' at line {i}: block starts commented but contains uncommented lines.");
+            }
+
+            section.SectionLines.Add(new SecretLine
+            {
+                RawContent = jsonLine,
+                TrimmedLine = trimmedLine,
+                LineIndex = i,
+                StartIndex = lineStartIndex,
+                Value = trimmedLine.StartsWith("//") && !trimmedLine.Contains(":") ? trimmedLine.Substring(2).Trim() : null
+            });
+
+            bracketCount += trimmedLine.Count(c => c == openBracket);
+            bracketCount -= trimmedLine.Count(c => c == closeBracket);
+        }
+
+        if (bracketCount > 0)
+        {
+            throw new FormatException($"Unclosed block for section '{section.Key}' in {jsonLines[i]}");
+        }
+    }
+
+    // Пример использования
+    public static void TestParsing(string userSecretsFilePath)
+    {
+        var sections = GetUserSecretSections(userSecretsFilePath);
+        foreach (var section in sections)
+        {
+            Console.WriteLine($"Section: {section.Key ?? "Comment"}, Active: {section.IsActive}, PureComment: {section.IsPureComment}, PrecedingComment: {section.PrecedingComment?.SectionLines[0].RawContent}");
+            foreach (var line in section.SectionLines)
+            {
+                Console.WriteLine($"  Line {line.LineIndex}: Raw: {line.RawContent}, Trimmed: {line.TrimmedLine}, Value: {line.Value ?? "N/A"} (Start: {line.StartIndex})");
+            }
+        }
     }
 
     private static bool TryParsePureComment(string line, out string comment)
