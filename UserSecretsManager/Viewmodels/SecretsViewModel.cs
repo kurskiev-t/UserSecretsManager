@@ -15,6 +15,7 @@ using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Input;
 using UserSecretsManager.Commands;
+using UserSecretsManager.Helpers;
 using UserSecretsManager.Models;
 
 namespace UserSecretsManager.ViewModels;
@@ -162,10 +163,11 @@ public class SecretsViewModel : INotifyPropertyChanged
         }
     }
 
+    // TODO: вызов вместо SvSolution - VS. ??? -> задать вопрос ИИ
     public void ScanUserSecrets()
     {
         ThreadHelper.ThrowIfNotOnUIThread();
-
+        
         // Получаем IVsSolution напрямую через Package
         var solution = Package.GetGlobalService(typeof(SVsSolution)) as IVsSolution;
         if (solution == null)
@@ -210,6 +212,10 @@ public class SecretsViewModel : INotifyPropertyChanged
                 // Сохраняем путь
                 UserSecretsJsonPath = secretsJsonPath
             };
+
+            // TODO: test
+            var sections = UserSecretsHelper.GetUserSecretSections(secretsJsonPath);
+
             ParseSecretsJson(secretsJsonPath, project);
             Projects.Add(project);
         }
