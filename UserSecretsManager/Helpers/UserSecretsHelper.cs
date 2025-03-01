@@ -160,25 +160,25 @@ public static class UserSecretsHelper
             string jsonLine = jsonLines[i];
             string trimmedLine = jsonLine.TrimStart();
             bool isCommentedLine = trimmedLine.StartsWith("//");
-            int lineStartIndex = currentCharIndex;
+            int lineFirstCharIndex = currentCharIndex;
             currentCharIndex += jsonLine.Length + Environment.NewLine.Length;
 
             var section = new SecretSection
             {
                 IsActive = !isCommentedLine,
                 StartingLineIndex = i,
-                StartIndex = lineStartIndex,
+                FirstCharIndex = lineFirstCharIndex,
                 SectionLines = new List<SecretLine>
-            {
-                new SecretLine
                 {
-                    RawContent = jsonLine,
-                    TrimmedLine = trimmedLine,
-                    LineIndex = i,
-                    StartIndex = lineStartIndex,
-                    Value = isCommentedLine && !trimmedLine.Contains(":") ? trimmedLine.Substring(2).Trim() : null
+                    new SecretLine
+                    {
+                        RawContent = jsonLine,
+                        TrimmedLine = trimmedLine,
+                        LineIndex = i,
+                        FirstCharIndex = lineFirstCharIndex,
+                        Value = isCommentedLine && !trimmedLine.Contains(":") ? trimmedLine.Substring(2).Trim() : null
+                    }
                 }
-            }
             };
 
             // Определяем тип секции
@@ -198,7 +198,7 @@ public static class UserSecretsHelper
                     ProcessBracketBlock(section, jsonLines, ref i, ref currentCharIndex, '[', ']');
                 }
             }
-            // Чистый комментарий или пустая строка
+            // Чистый комментарий или пустая строка, или, например, начало файла "{"
             else
             {
                 section.IsPureComment = isCommentedLine && !string.IsNullOrWhiteSpace(trimmedLine);
@@ -238,21 +238,21 @@ public static class UserSecretsHelper
             i++;
             string jsonLine = jsonLines[i];
             string trimmedLine = jsonLine.TrimStart();
-            int lineStartIndex = currentCharIndex;
+            int lineFirstCharIndex = currentCharIndex;
             currentCharIndex += jsonLine.Length + Environment.NewLine.Length;
 
             // Проверка бардака
             if (!section.IsActive && !trimmedLine.StartsWith("//"))
             {
                 throw new FormatException($"Inconsistent commenting in section '{section.Key}' at line {i}: block starts commented but contains uncommented lines.");
-            }
+            } 
 
             section.SectionLines.Add(new SecretLine
             {
                 RawContent = jsonLine,
                 TrimmedLine = trimmedLine,
                 LineIndex = i,
-                StartIndex = lineStartIndex,
+                FirstCharIndex = lineFirstCharIndex,
                 Value = trimmedLine.StartsWith("//") && !trimmedLine.Contains(":") ? trimmedLine.Substring(2).Trim() : null
             });
 
@@ -275,7 +275,7 @@ public static class UserSecretsHelper
             Console.WriteLine($"Section: {section.Key ?? "Comment"}, Active: {section.IsActive}, PureComment: {section.IsPureComment}, PrecedingComment: {section.PrecedingComment?.SectionLines[0].RawContent}");
             foreach (var line in section.SectionLines)
             {
-                Console.WriteLine($"  Line {line.LineIndex}: Raw: {line.RawContent}, Trimmed: {line.TrimmedLine}, Value: {line.Value ?? "N/A"} (Start: {line.StartIndex})");
+                Console.WriteLine($"  Line {line.LineIndex}: Raw: {line.RawContent}, Trimmed: {line.TrimmedLine}, Value: {line.Value ?? "N/A"} (Start: {line.FirstCharIndex})");
             }
         }
     }

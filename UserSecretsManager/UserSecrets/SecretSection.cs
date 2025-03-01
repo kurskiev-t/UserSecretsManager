@@ -1,4 +1,6 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
+using System.Linq;
 
 namespace UserSecretsManager.UserSecrets;
 
@@ -27,7 +29,12 @@ public class SecretSection
     /// <summary>
     /// Индекс первого символа секции в файле
     /// </summary>
-    public int StartIndex { get; set; }
+    public int FirstCharIndex { get; set; }
+
+    /// <summary>
+    /// Индекс последнего символа секции в файле
+    /// </summary>
+    public int LastCharIndex => SectionLines.Last().LastCharIndex;
 
     /// <summary>
     /// Список строк, входящих в секцию
@@ -43,4 +50,11 @@ public class SecretSection
     /// Идет ли эта секция сразу после предыдущей (связаны ли секции)
     /// </summary>
     public bool IsPreviousSectionConnected { get; set; }
+
+    /// <summary>
+    /// Контент секции в исходном виде
+    /// </summary>
+    public string RawContent => string.Join(Environment.NewLine, SectionLines.Select(l => l.RawContent));
+
+    public override string ToString() => RawContent;
 }
