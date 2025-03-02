@@ -38,6 +38,10 @@ public class SecretsViewModel : INotifyPropertyChanged
 
     private static readonly Regex SectionRegex = new Regex(@"^//\s*[""']?([^""':]+)[""']?\s*:\s*(.+?)\s*,?\s*$|^[""']?([^""':]+)[""']?\s*:\s*(.+?)\s*,?\s*$");
 
+    private static readonly string UserSecretsFolderPath = Path.Combine(
+        Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+        "Microsoft", "UserSecrets");
+
     #region Protected members
 
     protected virtual void OnPropertyChanged([CallerMemberName] string propertyName = null)
@@ -205,24 +209,16 @@ public class SecretsViewModel : INotifyPropertyChanged
         }
     }
 
-    // TODO: вызов вместо SvSolution - VS. ??? -> задать вопрос ИИ
     public async Task ScanUserSecrets()
     {
-        ThreadHelper.ThrowIfNotOnUIThread();
-
-        // Путь к папке User Secrets
-        string userSecretsPath = Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
-            "Microsoft", "UserSecrets");
-
-        if (!Directory.Exists(userSecretsPath))
+        if (!Directory.Exists(UserSecretsFolderPath))
         {
             OnShowMessage("Папка User Secrets не найдена.");
             return;
         }
 
         // Сканируем все папки с User Secrets
-        var userSecretsFolders = Directory.GetDirectories(userSecretsPath);
+        var userSecretsFolders = Directory.GetDirectories(UserSecretsFolderPath);
 
         Projects.Clear();
 
