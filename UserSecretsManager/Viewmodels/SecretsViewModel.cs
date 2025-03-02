@@ -246,94 +246,6 @@ public class SecretsViewModel : INotifyPropertyChanged
             Projects.Add(project);
         }
     }
-    
-    private void ParseSecretsJson(string secretsJsonPath, ProjectSecretModel project)
-    {
-        try
-        {
-            var userSecretsJsonLines = File.ReadAllLines(secretsJsonPath);
-            var sectionVariants = new Dictionary<string, List<(string Value, bool IsCommented, string Comment, string RawContent)>>();
-            string currentComment = null;
-
-            for (var i = 0; i < userSecretsJsonLines.Length; i++)
-            {
-                var line = userSecretsJsonLines[i];
-                string trimmedLine = line.Trim();
-
-                if (string.IsNullOrWhiteSpace(trimmedLine))
-                    continue;
-
-                if (TryParsePureComment(line, out var comment))
-                {
-                    currentComment = comment;
-                    continue;
-                }
-
-                var match = SectionRegex.Match(trimmedLine);
-                if (!match.Success)
-                    continue;
-
-                bool isSectionCommented = trimmedLine.StartsWith("//");
-                string sectionKey = isSectionCommented ? match.Groups[1].Value : match.Groups[3].Value;
-                string sectionValue = isSectionCommented ? match.Groups[2].Value : match.Groups[4].Value;
-
-                if (isSectionCommented)
-                {
-                    sectionValue = sectionValue.TrimStart('/');
-                }
-
-                if (!sectionVariants.ContainsKey(sectionKey))
-                {
-                    sectionVariants[sectionKey] = new List<(string, bool, string, string)>();
-                }
-
-                sectionVariants[sectionKey].Add((sectionValue, isSectionCommented, currentComment, line)!);
-            }
-
-            project.SectionGroups = new ObservableCollection<SecretSectionGroupModel>(
-                sectionVariants.Select((kvp, index) =>
-                {
-                    var group = new SecretSectionGroupModel
-                    {
-                        SectionName = kvp.Key,
-                        SectionVariants = new ObservableCollection<SecretSectionModel>(
-                            kvp.Value.Select((v, variantIndex) => new SecretSectionModel
-                            {
-                                SectionName = kvp.Key,
-                                Value = v.Value,
-                                Description = v.Comment ?? $"{kvp.Key} variant {variantIndex + 1}",
-                                IsSelected = !v.IsCommented,
-                                RawContent = v.RawContent
-                            }))
-                    };
-                    group.SelectedVariant = group.SectionVariants.FirstOrDefault(v => v.IsSelected);
-                    return group;
-                }));
-        }
-        catch (Exception ex)
-        {
-            OnShowMessage($"Ошибка при парсинге {secretsJsonPath}: {ex.Message}");
-        }
-    }
-
-    private static bool TryParsePureComment(string line, out string comment)
-    {
-        string trimmedLine = line.TrimStart();
-
-        // Если строка не начинается с "//", это точно не комментарий
-        if (!trimmedLine.StartsWith("//"))
-        {
-            comment = string.Empty;
-            return false;
-        }
-
-        // Убираем "//" и пробелы после него
-        comment = trimmedLine.Substring(2).TrimStart();
-
-        // Проверяем, что строка НЕ содержит JSON-структуру
-        // Чистый комментарий не должен содержать двоеточие с кавычками или без
-        return !Regex.IsMatch(comment, @"[""']?[^""':]+[""']?\s*:\s*.+");
-    }
 
     private static async Task<string?> FindProjectByUserSecretsIdAsync(string userSecretsId)
     {
@@ -374,7 +286,7 @@ public class SecretsViewModel : INotifyPropertyChanged
             var selectedDescription = tuple.selectedSecretSection.Description;
 
             var processedGroups = new HashSet<SecretSectionGroupModel>();
-            var descriptionsSet = new HashSet<string>(tuple.secretSectionGroup.SectionVariants.Select(x => x.Description));
+            var descriptionsSet = new HashSet<string?>(tuple.secretSectionGroup.SectionVariants.Select(x => x.Description));
             var groupsQueue = new Queue<SecretSectionGroupModel>();
 
             // Добавляем начальную группу
@@ -449,6 +361,7 @@ public class SecretsViewModel : INotifyPropertyChanged
         }
     }
     
+    // TODO: перевести на человеческий код; заморочка с отступами - может учесть их на стадии сканирования
     private void UpdateSecretsJson(ProjectSecretModel project)
     {
         ThreadHelper.ThrowIfNotOnUIThread();
@@ -458,56 +371,6 @@ public class SecretsViewModel : INotifyPropertyChanged
             OnShowMessage($"Файл секретов для {project.ProjectName} не найден.");
             return;
         }
-
-        #region Old version
-
-        /*
-
-        var lines = File.ReadAllLines(project.UserSecretsJsonPath).ToList();
-        var updatedLines = new List<string>();
-
-        foreach (var line in lines)
-        {
-            string trimmedLine = line.Trim();
-
-            if (string.IsNullOrWhiteSpace(trimmedLine) || TryParsePureComment(line, out _))
-            {
-                updatedLines.Add(line);
-                continue;
-            }
-
-            bool updated = false;
-            foreach (var group in project.SectionGroups)
-            {
-                var variant = group.SectionVariants.FirstOrDefault(v => v.RawContent.Trim() == trimmedLine);
-
-                if (variant != null)
-                {
-                    UpdateSecretSectionRawContent(variant);
-                    updatedLines.Add(variant.RawContent);
-                    updated = true;
-                    break;
-                }
-            }
-
-            if (!updated)
-            {
-                updatedLines.Add(line);
-            }
-        }
-
-        try
-        {
-            File.WriteAllLines(project.UserSecretsJsonPath, updatedLines);
-        }
-        catch (Exception ex)
-        {
-            OnShowMessage($"Ошибка при записи в {project.UserSecretsJsonPath}: {ex.Message}");
-        }
-
-        */
-
-        #endregion
 
         try
         {
@@ -583,6 +446,10 @@ public class SecretsViewModel : INotifyPropertyChanged
             return;
         }
 
+        #region Old version
+
+        /*
+
         var lines = File.ReadAllLines(project.UserSecretsJsonPath).ToList();
         string newSectionKey = null;
 
@@ -616,6 +483,67 @@ public class SecretsViewModel : INotifyPropertyChanged
                 // Пересканировать секреты пользователей, т. к. ключ секции поменялся
                 ScanUserSecrets();
             }
+        }
+        catch (Exception ex)
+        {
+            OnShowMessage($"Ошибка при записи в {project.UserSecretsJsonPath}: {ex.Message}");
+        }
+
+        */
+
+        #endregion
+
+        try
+        {
+            // Находим индекс секции в AllSections по FirstCharIndex
+            var sectionIndex = project.AllSections.FindIndex(s => s.FirstCharIndex == secretSection.Section.FirstCharIndex);
+            if (sectionIndex == -1)
+            {
+                OnShowMessage("Секция не найдена в списке всех секций.");
+                return;
+            }
+
+            // Собираем строки из AllSections, заменяя редактируемую секцию
+            var lines = new List<string>();
+            for (int i = 0; i < project.AllSections.Count; i++)
+            {
+                var section = project.AllSections[i];
+                if (i == sectionIndex)
+                {
+                    // Обновляем RawContent из текстбокса с учётом IsSelected
+                    var sectionLines = secretSection.RawContent.Split(new[] { Environment.NewLine }, StringSplitOptions.None);
+                    foreach (var line in sectionLines)
+                    {
+                        string trimmedLine = line.TrimStart();
+                        if (secretSection.IsSelected && trimmedLine.StartsWith("//"))
+                        {
+                            lines.Add(line.Replace("//", "").TrimStart()); // Раскомментируем
+                        }
+                        else if (!secretSection.IsSelected && !trimmedLine.StartsWith("//"))
+                        {
+                            lines.Add("//" + line); // Комментируем
+                        }
+                        else
+                        {
+                            lines.Add(line); // Оставляем как есть
+                        }
+                    }
+                }
+                else
+                {
+                    // Остальные секции как есть
+                    lines.AddRange(section.RawContent.Split(new[] { Environment.NewLine }, StringSplitOptions.None));
+                }
+            }
+
+            // Записываем файл
+            File.WriteAllLines(project.UserSecretsJsonPath, lines);
+
+            // Пересканируем файл для обновления моделей
+            var sections = UserSecretsHelper.GetUserSecretSections(project.UserSecretsJsonPath);
+            var updatedProject = UserSecretsHelper.BuildProjectModel(project.ProjectName, project.UserSecretsJsonPath, sections);
+            Projects.Remove(project);
+            Projects.Add(updatedProject);
         }
         catch (Exception ex)
         {
