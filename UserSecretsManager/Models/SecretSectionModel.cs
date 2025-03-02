@@ -1,6 +1,7 @@
 ﻿using System.Collections.Generic;
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
+using UserSecretsManager.UserSecrets;
 
 namespace UserSecretsManager.Models;
 
@@ -15,6 +16,7 @@ public class SecretSectionModel : INotifyPropertyChanged
     private bool _isSelected;
     private string _rawContent = string.Empty;
     private string _previousRawContent = string.Empty;
+    private SecretSection _section = new();
 
     /// <summary>
     /// Название секции пользовательского секрета
@@ -72,6 +74,12 @@ public class SecretSectionModel : INotifyPropertyChanged
     {
         get => _previousRawContent;
         set => SetField(ref _previousRawContent, value);
+    }
+
+    public SecretSection Section
+    {
+        get => _section;
+        set => SetField(ref _section, value);
     }
 
     public event PropertyChangedEventHandler PropertyChanged;

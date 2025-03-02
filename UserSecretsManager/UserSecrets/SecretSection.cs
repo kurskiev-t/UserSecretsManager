@@ -52,9 +52,14 @@ public class SecretSection
     public bool IsPreviousSectionConnected { get; set; }
 
     /// <summary>
-    /// Контент секции в исходном виде
+    /// Контент секции в исходном виде (закомментированный или активный)
     /// </summary>
     public string RawContent => string.Join(Environment.NewLine, SectionLines.Select(l => l.RawContent));
+
+    /// <summary>
+    /// Значение (контент) секции
+    /// </summary>
+    public string Value => string.Join(Environment.NewLine, SectionLines.Select(l => l.Value));
 
     public override string ToString() => RawContent;
 }

@@ -86,7 +86,27 @@ public class SecretsViewModel : INotifyPropertyChanged
                                 Description = "LOCAL"
                             }
                         }
-                    }
+                    },
+                    new SecretSectionGroupModel
+                    {
+                        SectionName = "enableMigrations",
+                        SectionVariants = new ObservableCollection<SecretSectionModel>
+                        {
+                            new SecretSectionModel
+                            {
+                                SectionName = "enableMigrations",
+                                Value = "true",
+                                Description = "DEV",
+                                IsSelected = true
+                            },
+                            new SecretSectionModel
+                            {
+                                SectionName = "enableMigrations",
+                                Value = "false",
+                                Description = "LOCAL"
+                            }
+                        }
+                    },
                 }
             },
             new()
@@ -204,19 +224,29 @@ public class SecretsViewModel : INotifyPropertyChanged
             if (projectPath == null)
                 continue;
 
-            var project = new ProjectSecretModel
-            {
-                ProjectName = Path.GetFileNameWithoutExtension(projectPath),
+            //var project = new ProjectSecretModel
+            //{
+            //    ProjectName = Path.GetFileNameWithoutExtension(projectPath),
 
-                // Сохраняем путь
-                UserSecretsJsonPath = secretsJsonPath
-            };
+            //    // Сохраняем путь
+            //    UserSecretsJsonPath = secretsJsonPath
+            //};
 
             // TODO: test
             var sections = UserSecretsHelper.GetUserSecretSections(secretsJsonPath);
 
-            ParseSecretsJson(secretsJsonPath, project);
+            var project = UserSecretsHelper.BuildProjectModel(
+                Path.GetFileNameWithoutExtension(projectPath),
+                secretsJsonPath,
+                sections
+            );
+
             Projects.Add(project);
+
+
+
+            // ParseSecretsJson(secretsJsonPath, project);
+            //Projects.Add(project);
         }
     }
     
