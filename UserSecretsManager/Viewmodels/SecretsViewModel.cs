@@ -446,53 +446,6 @@ public class SecretsViewModel : INotifyPropertyChanged
             return;
         }
 
-        #region Old version
-
-        /*
-
-        var lines = File.ReadAllLines(project.UserSecretsJsonPath).ToList();
-        string newSectionKey = null;
-
-        for (var i = 0; i < lines.Count; i++)
-        {
-            var currentLine = lines[i];
-
-            string trimmedLine = currentLine.Trim();
-
-            if (secretSection.PreviousRawContent.Trim() != trimmedLine)
-                continue;
-
-            var match = SectionRegex.Match(secretSection.RawContent.Trim());
-
-            if (match.Success)
-            {
-                bool isSectionCommented = trimmedLine.StartsWith("//");
-                newSectionKey = isSectionCommented ? match.Groups[1].Value : match.Groups[3].Value;
-            }
-            
-            lines[i] = secretSection.RawContent;
-            break;
-        }
-
-        try
-        {
-            File.WriteAllLines(project.UserSecretsJsonPath, lines);
-
-            if (secretSection.SectionName != newSectionKey)
-            {
-                // Пересканировать секреты пользователей, т. к. ключ секции поменялся
-                ScanUserSecrets();
-            }
-        }
-        catch (Exception ex)
-        {
-            OnShowMessage($"Ошибка при записи в {project.UserSecretsJsonPath}: {ex.Message}");
-        }
-
-        */
-
-        #endregion
-
         try
         {
             // Находим индекс секции в AllSections по FirstCharIndex
@@ -503,47 +456,81 @@ public class SecretsViewModel : INotifyPropertyChanged
                 return;
             }
 
-            // Собираем строки из AllSections, заменяя редактируемую секцию
-            var lines = new List<string>();
-            for (int i = 0; i < project.AllSections.Count; i++)
+            // Проверяем, изменился ли ключ секции
+            var originalSection = project.AllSections[sectionIndex];
+            var originalKey = originalSection.Key;
+            string? newKey = null;
+
+            var match = Regex.Match(secretSection.RawContent.Trim(), @"^(?://)?\s*""([^""]+)""\s*:");
+            if (match.Success)
             {
-                var section = project.AllSections[i];
-                if (i == sectionIndex)
+                newKey = match.Groups[1].Value;
+            }
+
+            bool keyChanged = originalKey != newKey;
+
+            // Обновляем SectionLines в SecretSection на основе нового RawContent
+            var newLines = secretSection.RawContent.Split(new[] { Environment.NewLine }, StringSplitOptions.None);
+            originalSection.SectionLines.Clear();
+            int currentCharIndex = originalSection.FirstCharIndex;
+            for (int i = 0; i < newLines.Length; i++)
+            {
+                string line = newLines[i];
+                string trimmedLine = line.TrimStart();
+                bool isCommented = trimmedLine.StartsWith("//");
+                originalSection.SectionLines.Add(new SecretLine
                 {
-                    // Обновляем RawContent из текстбокса с учётом IsSelected
-                    var sectionLines = secretSection.RawContent.Split(new[] { Environment.NewLine }, StringSplitOptions.None);
-                    foreach (var line in sectionLines)
+                    RawContent = line,
+                    TrimmedLine = trimmedLine,
+                    LineIndex = originalSection.StartingLineIndex + i,
+                    FirstCharIndex = currentCharIndex,
+                    Value = isCommented ? trimmedLine.Substring(2).Trim() : trimmedLine.Trim()
+                });
+                currentCharIndex += line.Length + Environment.NewLine.Length;
+            }
+            originalSection.IsActive = secretSection.IsSelected;
+
+            // Собираем строки из AllSections
+            var lines = new List<string>();
+            foreach (var section in project.AllSections)
+            {
+                var sectionLines = section.RawContent.Split(new[] { Environment.NewLine }, StringSplitOptions.None);
+                foreach (var line in sectionLines)
+                {
+                    string trimmedLine = line.TrimStart();
+                    if (section == originalSection)
                     {
-                        string trimmedLine = line.TrimStart();
                         if (secretSection.IsSelected && trimmedLine.StartsWith("//"))
                         {
-                            lines.Add(line.Replace("//", "").TrimStart()); // Раскомментируем
+                            lines.Add(line.Replace("//", "").TrimStart());
                         }
                         else if (!secretSection.IsSelected && !trimmedLine.StartsWith("//"))
                         {
-                            lines.Add("//" + line); // Комментируем
+                            lines.Add("//" + line);
                         }
                         else
                         {
-                            lines.Add(line); // Оставляем как есть
+                            lines.Add(line);
                         }
                     }
-                }
-                else
-                {
-                    // Остальные секции как есть
-                    lines.AddRange(section.RawContent.Split(new[] { Environment.NewLine }, StringSplitOptions.None));
+                    else
+                    {
+                        lines.Add(line); // Остальные секции как есть
+                    }
                 }
             }
 
             // Записываем файл
             File.WriteAllLines(project.UserSecretsJsonPath, lines);
 
-            // Пересканируем файл для обновления моделей
-            var sections = UserSecretsHelper.GetUserSecretSections(project.UserSecretsJsonPath);
-            var updatedProject = UserSecretsHelper.BuildProjectModel(project.ProjectName, project.UserSecretsJsonPath, sections);
-            Projects.Remove(project);
-            Projects.Add(updatedProject);
+            // Пересканируем только если ключ изменился
+            if (keyChanged)
+            {
+                var sections = UserSecretsHelper.GetUserSecretSections(project.UserSecretsJsonPath);
+                var updatedProject = UserSecretsHelper.BuildProjectModel(project.ProjectName, project.UserSecretsJsonPath, sections);
+                Projects.Remove(project);
+                Projects.Add(updatedProject);
+            }
         }
         catch (Exception ex)
         {
