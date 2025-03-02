@@ -1,7 +1,5 @@
 ﻿using Community.VisualStudio.Toolkit;
-using Microsoft.VisualStudio;
 using Microsoft.VisualStudio.Shell;
-using Microsoft.VisualStudio.Shell.Interop;
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
@@ -16,6 +14,7 @@ using System.Windows.Input;
 using UserSecretsManager.Commands;
 using UserSecretsManager.Helpers;
 using UserSecretsManager.Models;
+using UserSecretsManager.UserSecrets;
 
 namespace UserSecretsManager.ViewModels;
 
@@ -77,13 +76,21 @@ public class SecretsViewModel : INotifyPropertyChanged
                                 SectionName = "connectionSettings",
                                 Value = "some value1",
                                 Description = "DEV",
-                                IsSelected = true
+                                IsSelected = true,
+                                Section = new SecretSection
+                                {
+                                    Key = "connectionSettings"
+                                }
                             },
                             new SecretSectionModel
                             {
                                 SectionName = "connectionSettings",
                                 Value = "some value2",
-                                Description = "LOCAL"
+                                Description = "LOCAL",
+                                Section = new SecretSection
+                                {
+                                    Key = "connectionSettings"
+                                }
                             }
                         }
                     },
@@ -97,13 +104,21 @@ public class SecretsViewModel : INotifyPropertyChanged
                                 SectionName = "enableMigrations",
                                 Value = "true",
                                 Description = "DEV",
-                                IsSelected = true
+                                IsSelected = true,
+                                Section = new SecretSection
+                                {
+                                    Key = "enableMigrations"
+                                }
                             },
                             new SecretSectionModel
                             {
                                 SectionName = "enableMigrations",
                                 Value = "false",
-                                Description = "LOCAL"
+                                Description = "LOCAL",
+                                Section = new SecretSection
+                                {
+                                    Key = "enableMigrations"
+                                }
                             }
                         }
                     },
@@ -124,13 +139,21 @@ public class SecretsViewModel : INotifyPropertyChanged
                                 SectionName = "connectionSettings",
                                 Value = "some value1",
                                 Description = "DEV",
-                                IsSelected = true
+                                IsSelected = true,
+                                Section = new SecretSection
+                                {
+                                    Key = "connectionSettings"
+                                }
                             },
                             new SecretSectionModel
                             {
                                 SectionName = "connectionSettings",
                                 Value = "some value2",
-                                Description = "LOCAL"
+                                Description = "LOCAL",
+                                Section = new SecretSection
+                                {
+                                    Key = "connectionSettings"
+                                }
                             }
                         }
                     }
@@ -183,17 +206,9 @@ public class SecretsViewModel : INotifyPropertyChanged
     }
 
     // TODO: вызов вместо SvSolution - VS. ??? -> задать вопрос ИИ
-    public void ScanUserSecrets()
+    public async Task ScanUserSecrets()
     {
         ThreadHelper.ThrowIfNotOnUIThread();
-        
-        // Получаем IVsSolution напрямую через Package
-        var solution = Package.GetGlobalService(typeof(SVsSolution)) as IVsSolution;
-        if (solution == null)
-        {
-            OnShowMessage("Не удалось получить доступ к решению.");
-            return;
-        }
 
         // Путь к папке User Secrets
         string userSecretsPath = Path.Combine(
@@ -219,20 +234,11 @@ public class SecretsViewModel : INotifyPropertyChanged
                 continue;
 
             string userSecretsId = Path.GetFileName(folder);
-            var projectPath = FindProjectByUserSecretsId(solution, userSecretsId);
+            var projectPath = await FindProjectByUserSecretsIdAsync(userSecretsId);
 
             if (projectPath == null)
                 continue;
 
-            //var project = new ProjectSecretModel
-            //{
-            //    ProjectName = Path.GetFileNameWithoutExtension(projectPath),
-
-            //    // Сохраняем путь
-            //    UserSecretsJsonPath = secretsJsonPath
-            //};
-
-            // TODO: test
             var sections = UserSecretsHelper.GetUserSecretSections(secretsJsonPath);
 
             var project = UserSecretsHelper.BuildProjectModel(
@@ -242,11 +248,6 @@ public class SecretsViewModel : INotifyPropertyChanged
             );
 
             Projects.Add(project);
-
-
-
-            // ParseSecretsJson(secretsJsonPath, project);
-            //Projects.Add(project);
         }
     }
     
@@ -338,29 +339,24 @@ public class SecretsViewModel : INotifyPropertyChanged
         return !Regex.IsMatch(comment, @"[""']?[^""':]+[""']?\s*:\s*.+");
     }
 
-    private static string? FindProjectByUserSecretsId(IVsSolution solution, string userSecretsId)
+    private static async Task<string?> FindProjectByUserSecretsIdAsync(string userSecretsId)
     {
-        ThreadHelper.ThrowIfNotOnUIThread();
+        await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
 
-        solution.GetProjectEnum((uint)__VSENUMPROJFLAGS.EPF_LOADEDINSOLUTION, Guid.Empty, out var projectsEnumerator);
-        var projects = new IVsHierarchy[1];
+        var projects = await VS.Solutions.GetAllProjectsAsync();
 
-        while (projectsEnumerator.Next(1, projects, out var fetched) == 0 && fetched == 1)
+        foreach (var project in projects)
         {
-            projects[0].GetProperty((uint)VSConstants.VSITEMID.Root, (int)__VSHPROPID.VSHPROPID_ProjectDir, out var projectDirectory);
-
-            if(projectDirectory == null)
+            string? csprojPath = project.FullPath;
+            
+            if (string.IsNullOrEmpty(csprojPath) || !File.Exists(csprojPath))
                 continue;
 
-            var csprojFiles = Directory.GetFiles(projectDirectory.ToString(), "*.csproj", SearchOption.AllDirectories);
-
-            foreach (var csprojFile in csprojFiles)
+            string csprojContent = File.ReadAllText(csprojPath);
+            
+            if (csprojContent.Contains($"<UserSecretsId>{userSecretsId}</UserSecretsId>"))
             {
-                string csprojContent = File.ReadAllText(csprojFile);
-                if (csprojContent.Contains($"<UserSecretsId>{userSecretsId}</UserSecretsId>"))
-                {
-                    return csprojFile;
-                }
+                return csprojPath;
             }
         }
 
@@ -380,36 +376,6 @@ public class SecretsViewModel : INotifyPropertyChanged
         {
             var project = Projects.First(p => p.SectionGroups.Contains(tuple.secretSectionGroup));
             var selectedDescription = tuple.selectedSecretSection.Description;
-
-            #region Grok Version
-
-
-
-            //// Собираем все связанные группы через пересечение Description
-            //var processedGroups = new HashSet<SecretSectionGroupModel>();
-            //var descriptionsToProcess = new HashSet<string> { selectedDescription };
-            //var allDescriptions = new HashSet<string>();
-
-            //while (descriptionsToProcess.Any())
-            //{
-            //    var currentDescriptions = new HashSet<string>(descriptionsToProcess);
-            //    descriptionsToProcess.Clear();
-
-            //    foreach (var group in project.SectionGroups.Where(g => !processedGroups.Contains(g)))
-            //    {
-            //        var groupDescriptions = group.SectionVariants.Select(v => v.Description).ToHashSet();
-            //        if (groupDescriptions.Intersect(currentDescriptions).Any())
-            //        {
-            //            processedGroups.Add(group);
-            //            allDescriptions.UnionWith(groupDescriptions);
-            //            descriptionsToProcess.UnionWith(groupDescriptions.Except(currentDescriptions));
-            //        }
-            //    }
-            //}
-
-
-
-            #endregion
 
             var processedGroups = new HashSet<SecretSectionGroupModel>();
             var descriptionsSet = new HashSet<string>(tuple.secretSectionGroup.SectionVariants.Select(x => x.Description));
@@ -497,6 +463,10 @@ public class SecretsViewModel : INotifyPropertyChanged
             return;
         }
 
+        #region Old version
+
+        /*
+
         var lines = File.ReadAllLines(project.UserSecretsJsonPath).ToList();
         var updatedLines = new List<string>();
 
@@ -533,6 +503,73 @@ public class SecretsViewModel : INotifyPropertyChanged
         try
         {
             File.WriteAllLines(project.UserSecretsJsonPath, updatedLines);
+        }
+        catch (Exception ex)
+        {
+            OnShowMessage($"Ошибка при записи в {project.UserSecretsJsonPath}: {ex.Message}");
+        }
+
+        */
+
+        #endregion
+
+        try
+        {
+            // Создаём словарь моделей секций из GUI по FirstCharIndex
+            var variantActivity = new Dictionary<int, (bool IsSelected, string RawContent)>();
+            foreach (var group in project.SectionGroups)
+            {
+                foreach (var variant in group.SectionVariants)
+                {
+                    if (variant.Section != null)
+                    {
+                        variantActivity[variant.Section.FirstCharIndex] = (variant.IsSelected, variant.RawContent);
+                    }
+                }
+            }
+
+            // Собираем строки из AllSections с учётом активности из GUI
+            var lines = new List<string>();
+            foreach (var section in project.AllSections)
+            {
+                var sectionLines = section.RawContent.Split(new[] { Environment.NewLine }, StringSplitOptions.None);
+                foreach (var line in sectionLines)
+                {
+                    string trimmedLine = line.TrimStart();
+                    int indent = line.Length - trimmedLine.Length;
+
+                    if (variantActivity.TryGetValue(section.FirstCharIndex, out var activity))
+                    {
+                        // Это секция из GUI, обновляем её активность
+                        if (activity.IsSelected && trimmedLine.StartsWith("//"))
+                        {
+                            lines.Add(new string(' ', indent) + trimmedLine.Substring(2)); // Раскомментируем
+                        }
+                        else if (!activity.IsSelected && !trimmedLine.StartsWith("//"))
+                        {
+                            lines.Add(new string(' ', indent) + "//" + trimmedLine); // Комментируем
+                        }
+                        else
+                        {
+                            lines.Add(line); // Оставляем как есть
+                        }
+                    }
+                    else
+                    {
+                        // Промежуточные секции (комментарии, пустые строки, корень)
+                        lines.Add(line);
+                    }
+                }
+            }
+
+            // Записываем файл
+            File.WriteAllLines(project.UserSecretsJsonPath, lines);
+
+            // Пересканируем файл для обновления моделей
+            var sections = UserSecretsHelper.GetUserSecretSections(project.UserSecretsJsonPath);
+            var updatedProject = UserSecretsHelper.BuildProjectModel(project.ProjectName, project.UserSecretsJsonPath, sections);
+            Projects.Remove(project);
+            Projects.Add(updatedProject);
         }
         catch (Exception ex)
         {

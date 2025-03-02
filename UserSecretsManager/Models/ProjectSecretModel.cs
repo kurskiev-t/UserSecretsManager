@@ -1,4 +1,6 @@
-﻿using System.Collections.ObjectModel;
+﻿using System.Collections.Generic;
+using System.Collections.ObjectModel;
+using UserSecretsManager.UserSecrets;
 
 namespace UserSecretsManager.Models
 {
@@ -22,5 +24,7 @@ namespace UserSecretsManager.Models
         /// Путь к secrets.json этого проекта
         /// </summary>
         public string UserSecretsJsonPath { get; set; }
+
+        public List<SecretSection> AllSections { get; set; } = new List<SecretSection>(); // Добавляем для всех секций
     }
 }

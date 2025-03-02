@@ -134,42 +134,42 @@ public static class UserSecretsHelper
         {
             ProjectName = projectFileName,
             // Сохраняем путь
-            UserSecretsJsonPath = projectSecretsJsonPath
+            UserSecretsJsonPath = projectSecretsJsonPath,
+            AllSections = sections
         };
 
-        var sectionModelsByNames = sections.Where(x => x.Key != null).Select(x => new SecretSectionModel
-        {
-            SectionName = x.Key!,
-            Section = x,
-            Description = x.PrecedingComment?.Value,
-            IsSelected = x.IsActive,
-            RawContent = x.RawContent,
-            Value = x.Value
-        })
-            .GroupBy(x => x.SectionName)
-            .ToDictionary(group => group.Key, group => group.Select(model => model));
+        var sectionsByKeys = new Dictionary<string, List<SecretSection>>();
 
-        var sectionGroups = new ObservableCollection<SecretSectionGroupModel>(
-            sectionModelsByNames.Select((kvp, index) =>
+        foreach (var section in sections.Where(x => x.Key != null))
+        {
+            if (!sectionsByKeys.ContainsKey(section.Key!))
+                sectionsByKeys[section.Key!] = new List<SecretSection>();
+
+            sectionsByKeys[section.Key!].Add(section);
+        }
+
+        project.SectionGroups = new ObservableCollection<SecretSectionGroupModel>(
+            sectionsByKeys.Select((keyWithSections, index) =>
             {
                 var group = new SecretSectionGroupModel
                 {
-                    SectionName = kvp.Key,
+                    SectionName = keyWithSections.Key,
+
                     SectionVariants = new ObservableCollection<SecretSectionModel>(
-                        kvp.Value.Select((v, variantIndex) => new SecretSectionModel
+                        keyWithSections.Value.Select((section, variantIndex) => new SecretSectionModel
                         {
-                            SectionName = kvp.Key,
-                            Value = v.Value,
-                            Description = v.Description ?? $"{kvp.Key} variant {variantIndex + 1}",
-                            IsSelected = v.IsSelected,
-                            RawContent = v.RawContent
+                            SectionName = keyWithSections.Key,
+                            Value = section.Value,
+                            Description = section.PrecedingComment?.Value ?? $"{keyWithSections.Key} variant {variantIndex + 1}",
+                            IsSelected = section.IsActive,
+                            RawContent = section.RawContent,
+                            Section = section // Сохраняем ссылку
                         }))
                 };
+
                 group.SelectedVariant = group.SectionVariants.FirstOrDefault(v => v.IsSelected);
                 return group;
             }));
-
-        project.SectionGroups = sectionGroups;
 
         return project;
     }
