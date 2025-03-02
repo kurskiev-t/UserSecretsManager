@@ -141,7 +141,7 @@ public static class UserSecretsHelper
         {
             SectionName = x.Key!,
             Section = x,
-            Description = x.PrecedingComment?.Value ?? x.Key,
+            Description = x.PrecedingComment?.Value,
             IsSelected = x.IsActive,
             RawContent = x.RawContent,
             Value = x.Value
