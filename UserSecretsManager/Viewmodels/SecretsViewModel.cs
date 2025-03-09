@@ -44,12 +44,12 @@ public class SecretsViewModel : INotifyPropertyChanged
 
     #region Protected members
 
-    protected virtual void OnPropertyChanged([CallerMemberName] string propertyName = null)
+    protected virtual void OnPropertyChanged([CallerMemberName] string? propertyName = null)
     {
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
     }
 
-    protected bool SetField<T>(ref T field, T value, [CallerMemberName] string propertyName = null)
+    protected bool SetField<T>(ref T field, T value, [CallerMemberName] string? propertyName = null)
     {
         if (EqualityComparer<T>.Default.Equals(field, value)) return false;
         field = value;
@@ -188,6 +188,14 @@ public class SecretsViewModel : INotifyPropertyChanged
     public ICommand UpdateRawContentCommand => new RelayCommand<SecretSectionModel>(UpdateRawContent);
 
     public ICommand ShowSecretsFileCommand => new RelayCommand<ProjectSecretModel>(async (projectSecretModel) => await ShowSecretsFile(projectSecretModel));
+
+    public ICommand RestoreSecretsFileCommand =>
+        new RelayCommand<ProjectSecretModel>((projectSecretModel) => Application.Current.Dispatcher.Invoke(RestoreProjectUserSecretsFile));
+
+    private void RestoreProjectUserSecretsFile(ProjectSecretModel projectSecretModel)
+    {
+        // TODO: Restore backup file
+    }
 
     private async Task ShowSecretsFile(ProjectSecretModel project)
     {

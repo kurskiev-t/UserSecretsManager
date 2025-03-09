@@ -138,18 +138,20 @@ public static class UserSecretsHelper
             AllSections = sections
         };
 
-        var sectionsByKeys = sections
-            .Where(section => section.Key != null)
-            .GroupBy(section => section.Key)
-            .ToDictionary(group => group.Key, group => group.ToList());
+        //var sectionsByKeys = sections
+        //    .Where(section => section.Key != null)
+        //    .GroupBy(section => section.Key)
+        //    .ToDictionary(group => group.Key, group => group.ToList());
 
-        //foreach (var section in sections.Where(x => x.Key != null))
-        //{
-        //    if (!sectionsByKeys.ContainsKey(section.Key!))
-        //        sectionsByKeys[section.Key!] = new List<SecretSection>();
+        var sectionsByKeys = new Dictionary<string, List<SecretSection>>();
 
-        //    sectionsByKeys[section.Key!].Add(section);
-        //}
+        foreach (var section in sections.Where(x => x.Key != null))
+        {
+            if (!sectionsByKeys.ContainsKey(section.Key!))
+                sectionsByKeys[section.Key!] = new List<SecretSection>();
+
+            sectionsByKeys[section.Key!].Add(section);
+        }
 
         project.SectionGroups = new ObservableCollection<SecretSectionGroupModel>(
             sectionsByKeys.Select((keyWithSections, index) =>

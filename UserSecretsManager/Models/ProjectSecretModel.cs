@@ -23,7 +23,12 @@ namespace UserSecretsManager.Models
         /// <summary>
         /// Путь к secrets.json этого проекта
         /// </summary>
-        public string UserSecretsJsonPath { get; set; }
+        public string UserSecretsJsonPath { get; set; } = string.Empty;
+
+        /// <summary>
+        /// Путь до бэкапа, например, "secrets.json.bak"
+        /// </summary>
+        public string UserSecretsJsonBackupPath { get; set; } = string.Empty;
 
         public List<SecretSection> AllSections { get; set; } = new List<SecretSection>(); // Добавляем для всех секций
     }
