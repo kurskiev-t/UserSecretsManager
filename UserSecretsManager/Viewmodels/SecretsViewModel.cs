@@ -209,7 +209,7 @@ public class SecretsViewModel : INotifyPropertyChanged
 
             File.WriteAllText(projectSecretModel.UserSecretsJsonBackupPath, userSecretsJson);
 
-            OnShowMessage($"Backup created for {projectSecretModel.ProjectName}.");
+            // OnShowMessage($"Backup created for {projectSecretModel.ProjectName}.");
         }
         catch (Exception ex)
         {
@@ -233,7 +233,7 @@ public class SecretsViewModel : INotifyPropertyChanged
 
             RescanProject(projectSecretModel);
 
-            OnShowMessage($"Restored secrets for {projectSecretModel.ProjectName}.");
+            // OnShowMessage($"Restored secrets for {projectSecretModel.ProjectName}.");
         }
         catch (Exception ex)
         {
