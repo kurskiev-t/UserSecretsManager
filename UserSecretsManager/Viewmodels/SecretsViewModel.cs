@@ -36,8 +36,6 @@ public class SecretsViewModel : INotifyPropertyChanged
 
     public event PropertyChangedEventHandler PropertyChanged;
 
-    private static readonly Regex SectionRegex = new Regex(@"^//\s*[""']?([^""':]+)[""']?\s*:\s*(.+?)\s*,?\s*$|^[""']?([^""':]+)[""']?\s*:\s*(.+?)\s*,?\s*$");
-
     private static readonly string UserSecretsFolderPath = Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
         "Microsoft", "UserSecrets");
@@ -190,11 +188,57 @@ public class SecretsViewModel : INotifyPropertyChanged
     public ICommand ShowSecretsFileCommand => new RelayCommand<ProjectSecretModel>(async (projectSecretModel) => await ShowSecretsFile(projectSecretModel));
 
     public ICommand RestoreSecretsFileCommand =>
-        new RelayCommand<ProjectSecretModel>((projectSecretModel) => Application.Current.Dispatcher.Invoke(RestoreProjectUserSecretsFile));
+        new RelayCommand<ProjectSecretModel>((projectSecretModel) => Application.Current.Dispatcher.Invoke(() => RestoreProjectUserSecretsFile(projectSecretModel)));
+
+    public ICommand BackupSecretsFileCommand =>
+        new RelayCommand<ProjectSecretModel>((projectSecretModel) => Application.Current.Dispatcher.Invoke(() => BackupProjectUserSecretsFile(projectSecretModel)));
+
+    private void BackupProjectUserSecretsFile(ProjectSecretModel projectSecretModel)
+    {
+        if (!File.Exists(projectSecretModel.UserSecretsJsonPath))
+        {
+            OnShowMessage($"Файл секретов для {projectSecretModel.ProjectName} не найден.");
+            return;
+        }
+
+        try
+        {
+            var userSecretsJson = File.ReadAllText(projectSecretModel.UserSecretsJsonPath);
+
+            projectSecretModel.UserSecretsJsonBackupPath ??= $"{projectSecretModel.UserSecretsJsonPath}.bak";
+
+            File.WriteAllText(projectSecretModel.UserSecretsJsonBackupPath, userSecretsJson);
+
+            OnShowMessage($"Backup created for {projectSecretModel.ProjectName}.");
+        }
+        catch (Exception ex)
+        {
+            OnShowMessage($"Ошибка при создании бэкапа для {projectSecretModel.ProjectName}: {ex.Message}");
+        }
+    }
 
     private void RestoreProjectUserSecretsFile(ProjectSecretModel projectSecretModel)
     {
-        // TODO: Restore backup file
+        if (!File.Exists(projectSecretModel.UserSecretsJsonBackupPath))
+        {
+            OnShowMessage($"Файл бэкапа для секретов проекта {projectSecretModel.ProjectName} не найден.");
+            return;
+        }
+
+        try
+        {
+            var secretsJsonBackup = File.ReadAllText(projectSecretModel.UserSecretsJsonBackupPath!);
+
+            File.WriteAllText(projectSecretModel.UserSecretsJsonPath, secretsJsonBackup);
+
+            RescanProject(projectSecretModel);
+
+            OnShowMessage($"Restored secrets for {projectSecretModel.ProjectName}.");
+        }
+        catch (Exception ex)
+        {
+            OnShowMessage($"Ошибка при восстановлении для {projectSecretModel.ProjectName}: {ex.Message}");
+        }
     }
 
     private async Task ShowSecretsFile(ProjectSecretModel project)
@@ -252,6 +296,11 @@ public class SecretsViewModel : INotifyPropertyChanged
             );
 
             Projects.Add(project);
+
+            var secretsBackupPath = $"{project.UserSecretsJsonPath}.bak";
+
+            if (File.Exists(secretsBackupPath))
+                project.UserSecretsJsonBackupPath = secretsBackupPath;
         }
     }
 
@@ -433,10 +482,7 @@ public class SecretsViewModel : INotifyPropertyChanged
             File.WriteAllLines(project.UserSecretsJsonPath, lines);
 
             // Пересканируем файл для обновления моделей
-            var sections = UserSecretsHelper.GetUserSecretSections(project.UserSecretsJsonPath);
-            var updatedProject = UserSecretsHelper.BuildProjectModel(project.ProjectName, project.UserSecretsJsonPath, sections);
-            Projects.Remove(project);
-            Projects.Add(updatedProject);
+            RescanProject(project);
         }
         catch (Exception ex)
         {
@@ -546,17 +592,16 @@ public class SecretsViewModel : INotifyPropertyChanged
         }
     }
 
-    private static void UpdateSecretSectionRawContent(SecretSectionModel secretSectionModel)
+    private void RescanProject(ProjectSecretModel projectSecretModel)
     {
-        string rawContent = secretSectionModel.RawContent.TrimStart();
+        var sections = UserSecretsHelper.GetUserSecretSections(projectSecretModel.UserSecretsJsonPath);
 
-        if (secretSectionModel.IsSelected)
-        {
-            secretSectionModel.RawContent = rawContent.StartsWith("//") ? rawContent.Substring(2).TrimStart() : rawContent;
-        }
-        else
-        {
-            secretSectionModel.RawContent = rawContent.StartsWith("//") ? rawContent : $"// {rawContent}";
-        }
+        var updatedProject = UserSecretsHelper.BuildProjectModel(projectSecretModel.ProjectName, projectSecretModel.UserSecretsJsonPath, sections);
+
+        updatedProject.UserSecretsJsonBackupPath = projectSecretModel.UserSecretsJsonBackupPath;
+
+        Projects.Remove(projectSecretModel);
+
+        Projects.Add(updatedProject);
     }
 }

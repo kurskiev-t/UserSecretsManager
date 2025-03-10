@@ -15,6 +15,8 @@ namespace UserSecretsManager.Views
 
             // fix error
             var _ = new Microsoft.Xaml.Behaviors.DefaultTriggerAttribute(typeof(Trigger), typeof(Microsoft.Xaml.Behaviors.TriggerBase), null);
+
+            Loaded += UserControl_Loaded;
         }
 
         // TODO: Implement through binding to a command ?
