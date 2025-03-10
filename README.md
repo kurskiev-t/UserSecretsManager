@@ -51,11 +51,11 @@ Extension will make based on it two groups:
 
 See screenshots below:
 
-![Screenshot 1](1.jpg)
+![Screenshot 1](1.1.jpg)
 
-![Screenshot 2](2.jpg)
+![Screenshot 2](2.2.jpg)
 
-![Screenshot 3](3.jpg)
+![Screenshot 3](3.3.jpg)
 
 ## Building from Source
 1. Clone the repository: `git clone https://github.com/kurskiev-t/UserSecretsManager`
