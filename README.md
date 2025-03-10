@@ -16,14 +16,32 @@ User Secrets file example:
 ```json
 {
   // LOCAL
-// "connectionSettings": "server:local_server,port:some_local_port",
-// "enableMigrations": true,
+  //"connectionSettings": {
+    //"setting1": "server:local_server,port:some_port"
+  //},
+   //"enableMigrations": true,
 
   // DEV
-"connectionSettings": "server:dev_server,port:some_port",
-"enableMigrations": false,
-}
+  "connectionSettings": {
+    "setting1": "server:dev_server,port:some_port"
+  },
+   "enableMigrations": false,
 
+  // PROD
+  //"connectionSettings": {
+    //"setting1": "server:prod_server,port:some_port"
+  //},
+
+  // Random section
+  //"test": 2
+
+  // Random section v2
+  "test": 5,
+
+  //"test2": 10,
+
+   "test2":  11,
+}
 ```
 Extension will make based on it two groups:
 
@@ -36,6 +54,8 @@ See screenshots below:
 ![Screenshot 1](1.jpg)
 
 ![Screenshot 2](2.jpg)
+
+![Screenshot 3](3.jpg)
 
 ## Building from Source
 1. Clone the repository: `git clone https://github.com/kurskiev-t/UserSecretsManager`
