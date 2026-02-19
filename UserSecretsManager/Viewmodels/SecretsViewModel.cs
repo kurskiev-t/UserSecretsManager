@@ -14,6 +14,7 @@ using System.Windows.Input;
 using UserSecretsManager.Commands;
 using UserSecretsManager.Helpers;
 using UserSecretsManager.Models;
+using UserSecretsManager.Resources;
 using UserSecretsManager.UserSecrets;
 
 namespace UserSecretsManager.ViewModels;
@@ -197,7 +198,7 @@ public class SecretsViewModel : INotifyPropertyChanged
     {
         if (!File.Exists(projectSecretModel.UserSecretsJsonPath))
         {
-            OnShowMessage($"Файл секретов для {projectSecretModel.ProjectName} не найден.");
+            OnShowMessage(string.Format(Localizations.ProjectSecretsFileNotFound, projectSecretModel.ProjectName));
             return;
         }
 
@@ -213,7 +214,7 @@ public class SecretsViewModel : INotifyPropertyChanged
         }
         catch (Exception ex)
         {
-            OnShowMessage($"Ошибка при создании бэкапа для {projectSecretModel.ProjectName}: {ex.Message}");
+            OnShowMessage(string.Format(Localizations.BackupCreationError, projectSecretModel.ProjectName, ex.Message));
         }
     }
 
@@ -221,7 +222,7 @@ public class SecretsViewModel : INotifyPropertyChanged
     {
         if (!File.Exists(projectSecretModel.UserSecretsJsonBackupPath))
         {
-            OnShowMessage($"Файл бэкапа для секретов проекта {projectSecretModel.ProjectName} не найден.");
+            OnShowMessage(string.Format(Localizations.BackupFileNotFound, projectSecretModel.ProjectName));
             return;
         }
 
@@ -237,7 +238,7 @@ public class SecretsViewModel : INotifyPropertyChanged
         }
         catch (Exception ex)
         {
-            OnShowMessage($"Ошибка при восстановлении для {projectSecretModel.ProjectName}: {ex.Message}");
+            OnShowMessage(string.Format(Localizations.RestoreError, projectSecretModel.ProjectName, ex.Message));
         }
     }
 
@@ -247,7 +248,7 @@ public class SecretsViewModel : INotifyPropertyChanged
 
         if (string.IsNullOrEmpty(project.UserSecretsJsonPath) || !File.Exists(project.UserSecretsJsonPath))
         {
-            OnShowMessage($"Файл секретов для {project.ProjectName} не найден.");
+            OnShowMessage(string.Format(Localizations.ProjectSecretsFileNotFound, project.ProjectName));
             return;
         }
 
@@ -257,7 +258,7 @@ public class SecretsViewModel : INotifyPropertyChanged
         }
         catch (Exception ex)
         {
-            OnShowMessage($"Ошибка при открытии файла: {ex.Message}");
+            OnShowMessage(string.Format(Localizations.FileOpeningError, ex.Message));
         }
     }
 
@@ -265,7 +266,7 @@ public class SecretsViewModel : INotifyPropertyChanged
     {
         if (!Directory.Exists(UserSecretsFolderPath))
         {
-            OnShowMessage("Папка User Secrets не найдена.");
+            OnShowMessage(Localizations.UserSecretsFolderNotFound);
             return;
         }
 
@@ -425,7 +426,7 @@ public class SecretsViewModel : INotifyPropertyChanged
 
         if (string.IsNullOrEmpty(project.UserSecretsJsonPath) || !File.Exists(project.UserSecretsJsonPath))
         {
-            OnShowMessage($"Файл секретов для {project.ProjectName} не найден.");
+            OnShowMessage(string.Format(Localizations.ProjectSecretsFileNotFound, project.ProjectName));
             return;
         }
 
@@ -486,7 +487,7 @@ public class SecretsViewModel : INotifyPropertyChanged
         }
         catch (Exception ex)
         {
-            OnShowMessage($"Ошибка при записи в {project.UserSecretsJsonPath}: {ex.Message}");
+            OnShowMessage(string.Format(Localizations.SecretsFileWritingError, project.UserSecretsJsonPath, ex.Message));
         }
     }
 
@@ -496,7 +497,7 @@ public class SecretsViewModel : INotifyPropertyChanged
 
         if (string.IsNullOrEmpty(project.UserSecretsJsonPath) || !File.Exists(project.UserSecretsJsonPath))
         {
-            OnShowMessage($"Файл секретов для {project.ProjectName} не найден.");
+            OnShowMessage(string.Format(Localizations.ProjectSecretsFileNotFound, project.ProjectName));
             return;
         }
 
@@ -506,7 +507,7 @@ public class SecretsViewModel : INotifyPropertyChanged
             var sectionIndex = project.AllSections.FindIndex(s => s.FirstCharIndex == secretSection.Section.FirstCharIndex);
             if (sectionIndex == -1)
             {
-                OnShowMessage("Секция не найдена в списке всех секций.");
+                OnShowMessage(Localizations.SectionNotFound);
                 return;
             }
 
@@ -588,7 +589,7 @@ public class SecretsViewModel : INotifyPropertyChanged
         }
         catch (Exception ex)
         {
-            OnShowMessage($"Ошибка при записи в {project.UserSecretsJsonPath}: {ex.Message}");
+            OnShowMessage(string.Format(Localizations.SecretsFileWritingError, project.UserSecretsJsonPath, ex.Message));
         }
     }
 
